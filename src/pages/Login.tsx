@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { motion } from 'framer-motion';
 import { Wallet, Mail, Lock, User, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { ThemeToggle } from '@/components/ThemeToggle';
 
 export default function LoginPage() {
   const { login, register, isAuthenticated } = useAuth();
@@ -48,6 +49,11 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-background">
+      {/* Theme Toggle */}
+      <div className="fixed top-4 right-4 z-50">
+        <ThemeToggle />
+      </div>
+      
       {/* Background Effect */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-1/2 -right-1/2 w-full h-full bg-primary/5 rounded-full blur-3xl" />

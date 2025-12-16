@@ -14,7 +14,7 @@ import {
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
-
+import { ThemeToggle } from '@/components/ThemeToggle';
 interface LayoutProps {
   children: React.ReactNode;
 }
@@ -78,6 +78,8 @@ export function Layout({ children }: LayoutProps) {
               <span className="text-sm text-muted-foreground">{user?.displayName || user?.email}</span>
             </div>
             
+            <ThemeToggle />
+            
             <Button
               variant="ghost"
               size="icon"
@@ -86,7 +88,6 @@ export function Layout({ children }: LayoutProps) {
             >
               <LogOut className="h-4 w-4" />
             </Button>
-
             {/* Mobile Menu Button */}
             <Button
               variant="ghost"
@@ -128,6 +129,10 @@ export function Layout({ children }: LayoutProps) {
                   </Button>
                 </Link>
               ))}
+              <div className="flex items-center justify-between py-2">
+                <span className="text-sm text-muted-foreground">Cambiar tema</span>
+                <ThemeToggle />
+              </div>
               <Button
                 variant="ghost"
                 onClick={handleLogout}

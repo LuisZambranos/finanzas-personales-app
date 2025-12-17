@@ -20,4 +20,3 @@ const app = initializeApp(firebaseConfig);
 // Inicializar y exportar los servicios para usarlos en el resto de la app
 export const auth = getAuth(app);
 export const db = getFirestore(app);
-

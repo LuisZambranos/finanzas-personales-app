@@ -1,10 +1,9 @@
-// Importamos las funciones necesarias de los SDKs de Firebase
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 
-// Tu configuración de Firebase usando variables de entorno
-// Vite las lee automáticamente del archivo .env
+console.log("🔥 [Firebase] Inicializando módulos...");
+
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
@@ -14,9 +13,12 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID,
 };
 
-// Inicializar Firebase
-const app = initializeApp(firebaseConfig);
+// Log de seguridad (ocultamos la mitad de la key para verificar sin exponer todo)
+console.log("🔥 [Firebase] Config Project ID:", firebaseConfig.projectId);
+console.log("🔥 [Firebase] API Key cargada:", firebaseConfig.apiKey ? "SÍ (Empieza con " + firebaseConfig.apiKey.substring(0, 5) + "...)" : "NO");
 
-// Inicializar y exportar los servicios para usarlos en el resto de la app
+const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
+
+console.log("🔥 [Firebase] Instancias exportadas correctamente.");

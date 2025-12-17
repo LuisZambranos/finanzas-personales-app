@@ -6,8 +6,8 @@ import {
   onAuthStateChanged, 
   updateProfile 
 } from 'firebase/auth';
-import { doc, setDoc, serverTimestamp } from 'firebase/firestore'; // <--- NUEVO
-import { auth, db } from '@/lib/firebase'; // <--- Importamos db también
+import { doc, setDoc, serverTimestamp, getDoc } from 'firebase/firestore';
+import { auth, db } from '@/lib/firebase';
 import { User, AuthState } from '@/types/finance';
 
 interface AuthContextType extends AuthState {
@@ -26,8 +26,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   });
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+    console.log("👀 [AuthContext] Suscribiéndose a cambios de Auth...");
+    
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
+        console.log("👤 [AuthContext] Usuario detectado en Auth:", firebaseUser.email, "| UID:", firebaseUser.uid);
+        
+        // Opcional: Verificar si existe en DB antes de dar luz verde
+        // Esto confirma conexión con Firestore
+        try {
+            const userDocRef = doc(db, "users", firebaseUser.uid);
+            const userDoc = await getDoc(userDocRef);
+            if (userDoc.exists()) {
+                console.log("📚 [AuthContext] Datos de usuario encontrados en Firestore.");
+            } else {
+                console.warn("⚠️ [AuthContext] Usuario en Auth PERO sin datos en Firestore (Posible error en registro previo).");
+            }
+        } catch (dbError) {
+            console.error("❌ [AuthContext] Error intentando leer de Firestore:", dbError);
+        }
+
         const user: User = {
           id: firebaseUser.uid,
           email: firebaseUser.email || '',
@@ -35,17 +53,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           photoURL: firebaseUser.photoURL || undefined,
         };
 
-        setAuthState({
-          user,
-          isAuthenticated: true,
-          isLoading: false,
-        });
+        setAuthState({ user, isAuthenticated: true, isLoading: false });
       } else {
-        setAuthState({
-          user: null,
-          isAuthenticated: false,
-          isLoading: false,
-        });
+        console.log("⚪ [AuthContext] No hay sesión activa.");
+        setAuthState({ user: null, isAuthenticated: false, isLoading: false });
       }
     });
 
@@ -53,47 +64,72 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = async (email: string, password: string) => {
-    if (!email || !password) {
-      throw new Error('Email y contraseña son requeridos');
+    console.log("🔑 [Login] Intentando login con:", email);
+    try {
+        await signInWithEmailAndPassword(auth, email, password);
+        console.log("✅ [Login] Login exitoso en Auth.");
+    } catch (e) {
+        console.error("❌ [Login] Error:", e);
+        throw e;
     }
-    await signInWithEmailAndPassword(auth, email, password);
   };
 
   const register = async (email: string, password: string, displayName: string) => {
-    if (!email || !password || !displayName) {
-      throw new Error('Todos los campos son requeridos');
-    }
-
-    // 1. Crear el usuario en Firebase Auth
-    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-    const user = userCredential.user;
+    console.log("📝 [Register] Iniciando proceso para:", email);
     
-    // 2. Actualizar el perfil visual (Auth)
-    await updateProfile(user, {
-        displayName: displayName
-    });
+    try {
+      // 1. Crear Usuario en Auth
+      console.log("📝 [Register] Paso 1: Creando usuario en Firebase Auth...");
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+      console.log("✅ [Register] Usuario creado. UID:", user.uid);
+      
+      // 2. Actualizar DisplayName
+      console.log("📝 [Register] Paso 2: Actualizando perfil...");
+      await updateProfile(user, { displayName });
+      console.log("✅ [Register] Perfil actualizado.");
 
-    // 3. CREAR EL USUARIO EN LA BASE DE DATOS (FIRESTORE) [NUEVO]
-    // Esto crea la colección 'users' si no existe y guarda el documento con el ID del usuario
-    await setDoc(doc(db, "users", user.uid), {
+      // 3. Crear documento en Firestore
+      console.log("📝 [Register] Paso 3: Guardando datos en Firestore (users collection)...");
+      
+      const userData = {
         uid: user.uid,
         email: email,
         displayName: displayName,
-        createdAt: serverTimestamp(), // Marca de tiempo del servidor
+        createdAt: serverTimestamp(),
         preferences: {
-            currency: 'CLP', // Moneda por defecto
+            currency: 'CLP',
             theme: 'dark'
         }
-    });
+      };
+      console.log("📝 [Register] Datos a escribir:", userData);
 
-    // 4. Actualizar estado local
-    setAuthState(prev => ({
+      // Usamos setDoc
+      await setDoc(doc(db, "users", user.uid), userData);
+      console.log("✅ [Register] ¡Escritura en BD exitosa!");
+
+      // Forzar actualización estado local
+      setAuthState(prev => ({
         ...prev,
         user: prev.user ? { ...prev.user, displayName } : null
-    }));
+      }));
+
+    } catch (error: any) {
+      console.error("❌ [Register] FALLÓ EL PROCESO:", error);
+      
+      // Si falló la BD, cerramos la sesión creada en Auth para que no entre "roto"
+      if (auth.currentUser) {
+          console.warn("⚠️ [Register] Cerrando sesión debido al error en registro...");
+          await signOut(auth);
+      }
+      
+      // Lanzamos el error para que el formulario lo muestre
+      throw error;
+    }
   };
 
   const logout = async () => {
+    console.log("👋 [Logout] Cerrando sesión...");
     await signOut(auth);
   };
 

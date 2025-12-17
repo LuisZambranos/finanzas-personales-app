@@ -1,4 +1,13 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { 
+  createUserWithEmailAndPassword, 
+  signInWithEmailAndPassword, 
+  signOut, 
+  onAuthStateChanged, 
+  updateProfile 
+} from 'firebase/auth';
+import { doc, setDoc, serverTimestamp } from 'firebase/firestore'; // <--- NUEVO
+import { auth, db } from '@/lib/firebase'; // <--- Importamos db también
 import { User, AuthState } from '@/types/finance';
 
 interface AuthContextType extends AuthState {
@@ -9,8 +18,6 @@ interface AuthContextType extends AuthState {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const STORAGE_KEY = 'finanzas_user';
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [authState, setAuthState] = useState<AuthState>({
     user: null,
@@ -19,77 +26,75 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   });
 
   useEffect(() => {
-    // Check for stored user on mount
-    const storedUser = localStorage.getItem(STORAGE_KEY);
-    if (storedUser) {
-      try {
-        const user = JSON.parse(storedUser) as User;
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      if (firebaseUser) {
+        const user: User = {
+          id: firebaseUser.uid,
+          email: firebaseUser.email || '',
+          displayName: firebaseUser.displayName || undefined,
+          photoURL: firebaseUser.photoURL || undefined,
+        };
+
         setAuthState({
           user,
           isAuthenticated: true,
           isLoading: false,
         });
-      } catch {
-        localStorage.removeItem(STORAGE_KEY);
-        setAuthState({ user: null, isAuthenticated: false, isLoading: false });
+      } else {
+        setAuthState({
+          user: null,
+          isAuthenticated: false,
+          isLoading: false,
+        });
       }
-    } else {
-      setAuthState({ user: null, isAuthenticated: false, isLoading: false });
-    }
+    });
+
+    return () => unsubscribe();
   }, []);
 
   const login = async (email: string, password: string) => {
-    // Simulate API call - Replace with Firebase Auth
-    await new Promise(resolve => setTimeout(resolve, 800));
-    
     if (!email || !password) {
       throw new Error('Email y contraseña son requeridos');
     }
-
-    // Demo login - in production, use Firebase Auth
-    const user: User = {
-      id: 'demo-user-' + Date.now(),
-      email,
-      displayName: email.split('@')[0],
-    };
-
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(user));
-    setAuthState({
-      user,
-      isAuthenticated: true,
-      isLoading: false,
-    });
+    await signInWithEmailAndPassword(auth, email, password);
   };
 
   const register = async (email: string, password: string, displayName: string) => {
-    // Simulate API call - Replace with Firebase Auth
-    await new Promise(resolve => setTimeout(resolve, 800));
-    
     if (!email || !password || !displayName) {
       throw new Error('Todos los campos son requeridos');
     }
 
-    const user: User = {
-      id: 'demo-user-' + Date.now(),
-      email,
-      displayName,
-    };
-
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(user));
-    setAuthState({
-      user,
-      isAuthenticated: true,
-      isLoading: false,
+    // 1. Crear el usuario en Firebase Auth
+    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+    const user = userCredential.user;
+    
+    // 2. Actualizar el perfil visual (Auth)
+    await updateProfile(user, {
+        displayName: displayName
     });
+
+    // 3. CREAR EL USUARIO EN LA BASE DE DATOS (FIRESTORE) [NUEVO]
+    // Esto crea la colección 'users' si no existe y guarda el documento con el ID del usuario
+    await setDoc(doc(db, "users", user.uid), {
+        uid: user.uid,
+        email: email,
+        displayName: displayName,
+        createdAt: serverTimestamp(), // Marca de tiempo del servidor
+        preferences: {
+            currency: 'CLP', // Moneda por defecto
+            theme: 'dark'
+        }
+    });
+
+    // 4. Actualizar estado local
+    setAuthState(prev => ({
+        ...prev,
+        user: prev.user ? { ...prev.user, displayName } : null
+    }));
   };
 
   const logout = async () => {
-    localStorage.removeItem(STORAGE_KEY);
-    setAuthState({
-      user: null,
-      isAuthenticated: false,
-      isLoading: false,
-    });
+    await signOut(auth);
   };
 
   return (

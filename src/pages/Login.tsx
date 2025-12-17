@@ -69,11 +69,7 @@ export default function LoginPage() {
       >
         {/* Logo */}
         <div className="text-center mb-8">
-          {/* 1. Quitamos el fondo, bordes y tamaños fijos del contenedor.
-              Dejamos 'inline-block' o 'inline-flex' para que el 'text-center' del padre lo centre.
-              Mantenemos el efecto glow y el margen inferior.
-          */}
-          <div className="inline-flex mb-4">
+        <div className="inline-flex mb-4">
             <img 
               src={logo} 
               alt="logo" 
@@ -147,7 +143,7 @@ export default function LoginPage() {
                   value={email}
                   onChange={e => setEmail(e.target.value)}
                   className="h-12 pl-10 text-base input-glass"
-                  // required
+                  required
                 />
               </div>
             </div>
@@ -162,7 +158,7 @@ export default function LoginPage() {
                   value={password}
                   onChange={e => setPassword(e.target.value)}
                   className="h-12 pl-10 text-base input-glass"
-                  // required
+                  required
                 />
               </div>
             </div>

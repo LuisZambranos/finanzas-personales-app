@@ -8,6 +8,7 @@ import { motion } from 'framer-motion';
 import { Wallet, Mail, Lock, User, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import logo from '../../public/logo2.png';
 
 export default function LoginPage() {
   const { login, register, isAuthenticated } = useAuth();
@@ -68,17 +69,25 @@ export default function LoginPage() {
       >
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center h-16 w-16 rounded-2xl bg-primary/10 mb-4 animate-pulse-glow">
-            <Wallet className="h-8 w-8 text-primary" />
+          {/* 1. Quitamos el fondo, bordes y tamaños fijos del contenedor.
+              Dejamos 'inline-block' o 'inline-flex' para que el 'text-center' del padre lo centre.
+              Mantenemos el efecto glow y el margen inferior.
+          */}
+          <div className="inline-flex mb-4">
+            <img 
+              src={logo} 
+              alt="logo" 
+              className="h-28 w-auto" 
+            />
           </div>
-          <h1 className="font-display text-3xl font-bold">
+          <h1 className="font-display text-3xl font-bold ">
             <span className="text-gradient">Finanzas Personales</span>
           </h1>
           <p className="text-muted-foreground mt-2">Controla tus ingresos múltiples</p>
         </div>
 
         {/* Card */}
-        <div className="glass-card p-6 md:p-8">
+        <div className="glass-card p-6 md:p-8 animate-pulse-glow">
           {/* Tab Toggle */}
           <div className="flex p-1 bg-secondary/50 rounded-lg mb-6">
             <Button
@@ -138,7 +147,7 @@ export default function LoginPage() {
                   value={email}
                   onChange={e => setEmail(e.target.value)}
                   className="h-12 pl-10 text-base input-glass"
-                  required
+                  // required
                 />
               </div>
             </div>
@@ -153,7 +162,7 @@ export default function LoginPage() {
                   value={password}
                   onChange={e => setPassword(e.target.value)}
                   className="h-12 pl-10 text-base input-glass"
-                  required
+                  // required
                 />
               </div>
             </div>

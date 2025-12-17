@@ -1,16 +1,18 @@
-// src/types/finance.ts
+export type Frequency = 'one-time' | 'daily' | 'weekly' | 'bi-weekly' | 'monthly' | 'yearly';
 
 export interface Transaction {
   id: string;
-  userId: string; // VITAL: Para saber de quién es esta transacción
+  userId: string;
   type: 'income' | 'expense';
   category: string;
   description: string;
-  grossAmount: number; // Monto bruto
-  deductionPercentage?: number; // Opcional, para impuestos/retenciones
-  netAmount: number; // Lo que realmente entra/sale
+  grossAmount: number;
+  deductionPercentage: number;
+  netAmount: number;
   color: string;
   date: string;
+  frequency: Frequency; // Nuevo: Para saber si este dinero es para el día o para el mes
+  isRecurringRule?: boolean; // Flag para saber si se creó desde una regla
   createdAt: string;
   updatedAt: string;
 }
@@ -21,25 +23,22 @@ export interface Goal {
   name: string;
   targetAmount: number;
   currentAmount: number;
-  period: 'daily' | 'weekly' | 'monthly' | 'yearly'; // Agregamos yearly
-  startDate: string;
-  endDate?: string;
+  period: 'daily' | 'weekly' | 'monthly' | 'yearly';
+  startDate: string; // Nuevo
+  endDate?: string;  // Nuevo
   accumulatedDeficit?: number;
-  icon?: string; // Para futuro uso visual
 }
 
-// NUEVA ESTRUCTURA PARA RECURRENCIAS
 export interface Recurrence {
   id: string;
   userId: string;
   type: 'income' | 'expense';
-  name: string;
+  category: string;
+  description: string;
   amount: number;
-  frequency: 'weekly' | 'monthly' | 'yearly';
+  frequency: Frequency;
   nextPaymentDate: string;
   active: boolean;
-  category: string;
-  description?: string;
   createdAt: string;
 }
 
@@ -49,14 +48,7 @@ export interface CategoryColor {
   count: number;
 }
 
-export interface DashboardStats {
-  totalIncome: number;
-  totalExpenses: number;
-  netBalance: number;
-  savingsRate: number;
-}
-
-// ... Mantén el resto de User, AuthState, PRESET_COLORS y DEFAULT_CATEGORIES igual
+// ... User, AuthState, etc (mantener igual)
 export interface User {
   id: string;
   email: string;

@@ -1,63 +1,97 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useMemo } from 'react';
+import { 
+  collection, 
+  query, 
+  orderBy, 
+  onSnapshot, 
+  addDoc, 
+  updateDoc, 
+  deleteDoc, 
+  doc, 
+  serverTimestamp 
+} from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { useAuth } from '@/contexts/AuthContext';
 import { Transaction, Goal, CategoryColor } from '@/types/finance';
-import { v4 as uuidv4 } from 'uuid';
 
 interface FinanceContextType {
   transactions: Transaction[];
   goals: Goal[];
   categoryColors: CategoryColor[];
-  addTransaction: (transaction: Omit<Transaction, 'id' | 'createdAt' | 'updatedAt'>) => void;
-  updateTransaction: (id: string, transaction: Partial<Transaction>) => void;
-  deleteTransaction: (id: string) => void;
-  addGoal: (goal: Omit<Goal, 'id'>) => void;
-  updateGoal: (id: string, goal: Partial<Goal>) => void;
-  deleteGoal: (id: string) => void;
+  isLoadingData: boolean;
+  addTransaction: (transaction: Omit<Transaction, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
+  updateTransaction: (id: string, transaction: Partial<Transaction>) => Promise<void>;
+  deleteTransaction: (id: string) => Promise<void>;
+  addGoal: (goal: Omit<Goal, 'id'>) => Promise<void>;
+  updateGoal: (id: string, goal: Partial<Goal>) => Promise<void>;
+  deleteGoal: (id: string) => Promise<void>;
   getCategoryColor: (category: string) => string | null;
   getMostUsedColor: (category: string) => string | null;
 }
 
 const FinanceContext = createContext<FinanceContextType | undefined>(undefined);
 
-const TRANSACTIONS_KEY = 'finanzas_transactions';
-const GOALS_KEY = 'finanzas_goals';
-
 export function FinanceProvider({ children }: { children: ReactNode }) {
+  const { user } = useAuth();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [goals, setGoals] = useState<Goal[]>([]);
+  const [isLoadingData, setIsLoadingData] = useState(true);
 
-  // Load data from localStorage on mount
+  // 1. ESCUCHAR CAMBIOS EN FIRESTORE EN TIEMPO REAL
   useEffect(() => {
-    const storedTransactions = localStorage.getItem(TRANSACTIONS_KEY);
-    const storedGoals = localStorage.getItem(GOALS_KEY);
-
-    if (storedTransactions) {
-      try {
-        setTransactions(JSON.parse(storedTransactions));
-      } catch {
-        console.error('Error parsing transactions');
-      }
+    if (!user) {
+      setTransactions([]);
+      setGoals([]);
+      setIsLoadingData(false);
+      return;
     }
 
-    if (storedGoals) {
-      try {
-        setGoals(JSON.parse(storedGoals));
-      } catch {
-        console.error('Error parsing goals');
-      }
-    }
-  }, []);
+    setIsLoadingData(true);
 
-  // Save to localStorage when data changes
-  useEffect(() => {
-    localStorage.setItem(TRANSACTIONS_KEY, JSON.stringify(transactions));
-  }, [transactions]);
+    // Referencias a las subcolecciones del usuario
+    const transactionsRef = collection(db, 'users', user.id, 'transactions');
+    const goalsRef = collection(db, 'users', user.id, 'goals');
+    
+    // Query para ordenar transacciones por fecha (más reciente primero)
+    const qTrx = query(transactionsRef, orderBy('date', 'desc'));
 
-  useEffect(() => {
-    localStorage.setItem(GOALS_KEY, JSON.stringify(goals));
-  }, [goals]);
+    // Suscripción a Transacciones
+    const unsubscribeTrx = onSnapshot(qTrx, (snapshot) => {
+      const data = snapshot.docs.map(doc => {
+        const d = doc.data();
+        return {
+          ...d,
+          id: doc.id,
+          // Convertimos los Timestamps de Firestore a string para la app
+          createdAt: d.createdAt?.toDate?.().toISOString() || new Date().toISOString(),
+          updatedAt: d.updatedAt?.toDate?.().toISOString() || new Date().toISOString(),
+        } as Transaction;
+      });
+      setTransactions(data);
+      setIsLoadingData(false);
+    }, (error) => {
+      console.error("Error leyendo transacciones:", error);
+      setIsLoadingData(false);
+    });
 
-  // Calculate category colors from transactions
-  const categoryColors: CategoryColor[] = React.useMemo(() => {
+    // Suscripción a Metas
+    const unsubscribeGoals = onSnapshot(goalsRef, (snapshot) => {
+      const data = snapshot.docs.map(doc => ({
+        ...doc.data(),
+        id: doc.id
+      } as Goal));
+      setGoals(data);
+    });
+
+    // Limpieza al desmontar
+    return () => {
+      unsubscribeTrx();
+      unsubscribeGoals();
+    };
+  }, [user]);
+
+  // 2. LÓGICA DE COLORES (Se mantiene igual, procesa los datos locales)
+  const categoryColors: CategoryColor[] = useMemo(() => {
     const colorMap = new Map<string, Map<string, number>>();
     
     transactions.forEach(t => {
@@ -86,47 +120,74 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
     return result;
   }, [transactions]);
 
-  const addTransaction = (transaction: Omit<Transaction, 'id' | 'createdAt' | 'updatedAt'>) => {
-    const now = new Date().toISOString();
-    const newTransaction: Transaction = {
-      ...transaction,
-      id: uuidv4(),
-      createdAt: now,
-      updatedAt: now,
-    };
-    setTransactions(prev => [newTransaction, ...prev]);
+  // 3. FUNCIONES CRUD CONECTADAS A FIRESTORE
+  const addTransaction = async (transaction: Omit<Transaction, 'id' | 'createdAt' | 'updatedAt'>) => {
+    if (!user) return;
+    try {
+      await addDoc(collection(db, 'users', user.id, 'transactions'), {
+        ...transaction,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+    } catch (error) {
+      console.error("Error agregando transacción:", error);
+      throw error;
+    }
   };
 
-  const updateTransaction = (id: string, updates: Partial<Transaction>) => {
-    setTransactions(prev =>
-      prev.map(t =>
-        t.id === id
-          ? { ...t, ...updates, updatedAt: new Date().toISOString() }
-          : t
-      )
-    );
+  const updateTransaction = async (id: string, updates: Partial<Transaction>) => {
+    if (!user) return;
+    try {
+      const docRef = doc(db, 'users', user.id, 'transactions', id);
+      await updateDoc(docRef, {
+        ...updates,
+        updatedAt: serverTimestamp()
+      });
+    } catch (error) {
+      console.error("Error actualizando transacción:", error);
+      throw error;
+    }
   };
 
-  const deleteTransaction = (id: string) => {
-    setTransactions(prev => prev.filter(t => t.id !== id));
+  const deleteTransaction = async (id: string) => {
+    if (!user) return;
+    try {
+      await deleteDoc(doc(db, 'users', user.id, 'transactions', id));
+    } catch (error) {
+      console.error("Error eliminando transacción:", error);
+      throw error;
+    }
   };
 
-  const addGoal = (goal: Omit<Goal, 'id'>) => {
-    const newGoal: Goal = {
-      ...goal,
-      id: uuidv4(),
-    };
-    setGoals(prev => [newGoal, ...prev]);
+  const addGoal = async (goal: Omit<Goal, 'id'>) => {
+    if (!user) return;
+    try {
+        await addDoc(collection(db, 'users', user.id, 'goals'), goal);
+    } catch (error) {
+        console.error("Error agregando meta:", error);
+        throw error;
+    }
   };
 
-  const updateGoal = (id: string, updates: Partial<Goal>) => {
-    setGoals(prev =>
-      prev.map(g => (g.id === id ? { ...g, ...updates } : g))
-    );
+  const updateGoal = async (id: string, updates: Partial<Goal>) => {
+    if (!user) return;
+    try {
+        const docRef = doc(db, 'users', user.id, 'goals', id);
+        await updateDoc(docRef, updates);
+    } catch (error) {
+        console.error("Error actualizando meta:", error);
+        throw error;
+    }
   };
 
-  const deleteGoal = (id: string) => {
-    setGoals(prev => prev.filter(g => g.id !== id));
+  const deleteGoal = async (id: string) => {
+    if (!user) return;
+    try {
+        await deleteDoc(doc(db, 'users', user.id, 'goals', id));
+    } catch (error) {
+        console.error("Error eliminando meta:", error);
+        throw error;
+    }
   };
 
   const getCategoryColor = (category: string): string | null => {
@@ -144,6 +205,7 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
         transactions,
         goals,
         categoryColors,
+        isLoadingData,
         addTransaction,
         updateTransaction,
         deleteTransaction,

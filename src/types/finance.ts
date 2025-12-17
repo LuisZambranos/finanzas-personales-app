@@ -1,3 +1,6 @@
+// src/types/finance.ts
+
+// NUEVO: Definimos los tipos de frecuencia disponibles globalmente
 export type Frequency = 'one-time' | 'daily' | 'weekly' | 'bi-weekly' | 'monthly' | 'yearly';
 
 export interface Transaction {
@@ -7,12 +10,15 @@ export interface Transaction {
   category: string;
   description: string;
   grossAmount: number;
-  deductionPercentage: number;
+  deductionPercentage?: number;
   netAmount: number;
   color: string;
   date: string;
-  frequency: Frequency; // Nuevo: Para saber si este dinero es para el día o para el mes
-  isRecurringRule?: boolean; // Flag para saber si se creó desde una regla
+  
+  // NUEVO: Campos para manejo de tiempo y recurrencia
+  frequency: Frequency; // Vital para calcular si cumples metas diarias con sueldo mensual
+  isRecurringRule?: boolean; // Flag para saber si esta transacción generó una regla a futuro
+
   createdAt: string;
   updatedAt: string;
 }
@@ -24,21 +30,29 @@ export interface Goal {
   targetAmount: number;
   currentAmount: number;
   period: 'daily' | 'weekly' | 'monthly' | 'yearly';
-  startDate: string; // Nuevo
-  endDate?: string;  // Nuevo
+  
+  // NUEVO: Fechas para controlar la vigencia de la meta
+  startDate: string;
+  endDate?: string;
+  
   accumulatedDeficit?: number;
+  icon?: string;
 }
 
 export interface Recurrence {
   id: string;
   userId: string;
   type: 'income' | 'expense';
-  category: string;
-  description: string;
-  amount: number;
-  frequency: Frequency;
+  name: string;
+  amount: number; // Monto base
+  
+  // Usamos el tipo Frequency para consistencia
+  frequency: Frequency; 
   nextPaymentDate: string;
   active: boolean;
+  
+  category: string;
+  description?: string;
   createdAt: string;
 }
 
@@ -48,7 +62,13 @@ export interface CategoryColor {
   count: number;
 }
 
-// ... User, AuthState, etc (mantener igual)
+export interface DashboardStats {
+  totalIncome: number;
+  totalExpenses: number;
+  netBalance: number;
+  savingsRate: number;
+}
+
 export interface User {
   id: string;
   email: string;

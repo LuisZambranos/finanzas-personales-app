@@ -5,33 +5,60 @@ import { Target, TrendingUp, AlertTriangle, CheckCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export function GoalTracker() {
-  const { goals, transactions } = useFinance();
+  // 1. Traemos la nueva función 'calculateAmortizedAmount'
+  const { goals, transactions, calculateAmortizedAmount } = useFinance();
 
   const dailyStats = useMemo(() => {
-    const today = new Date().toISOString().split('T')[0];
-    const todayTransactions = transactions.filter(t => t.date === today);
+    const now = new Date();
+    const today = now.toISOString().split('T')[0];
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+
+    // Filtramos transacciones solo del MES ACTUAL para evitar procesar todo el historial
+    const currentMonthTransactions = transactions.filter(t => {
+      const d = new Date(t.date);
+      return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+    });
     
-    const todayIncome = todayTransactions
+    // --- CÁLCULO INTELIGENTE DE INGRESO DIARIO ---
+    const todayIncome = currentMonthTransactions
       .filter(t => t.type === 'income')
-      .reduce((sum, t) => sum + t.netAmount, 0);
+      .reduce((sum, t) => {
+        // Caso A: Ingreso Único (ej. Venta de garaje) -> Solo cuenta si fue HOY
+        if (t.frequency === 'one-time') {
+          return t.date === today ? sum + t.netAmount : sum;
+        }
+        
+        // Caso B: Ingreso Recurrente (ej. Sueldo Mensual) -> Se divide proporcionalmente
+        // Esto usa la función que creamos en el Contexto
+        return sum + calculateAmortizedAmount(t.netAmount, t.frequency, 'daily');
+      }, 0);
     
-    const todayExpenses = todayTransactions
+    // --- CÁLCULO DE GASTOS (Misma lógica, útil para futuro) ---
+    const todayExpenses = currentMonthTransactions
       .filter(t => t.type === 'expense')
-      .reduce((sum, t) => sum + t.netAmount, 0);
+      .reduce((sum, t) => {
+        if (t.frequency === 'one-time') {
+          return t.date === today ? sum + t.netAmount : sum;
+        }
+        return sum + calculateAmortizedAmount(t.netAmount, t.frequency, 'daily');
+      }, 0);
 
     return { todayIncome, todayExpenses };
-  }, [transactions]);
+  }, [transactions, calculateAmortizedAmount]);
 
+  // Buscamos la meta configurada como "Diaria"
   const dailyGoal = goals.find(g => g.period === 'daily');
 
   if (!dailyGoal) {
     return null;
   }
 
-  const targetWithDeficit = dailyGoal.targetAmount + dailyGoal.accumulatedDeficit;
-  const progress = (dailyStats.todayIncome / targetWithDeficit) * 100;
+  const targetWithDeficit = dailyGoal.targetAmount + (dailyGoal.accumulatedDeficit || 0);
+  // Evitamos división por cero
+  const progress = targetWithDeficit > 0 ? (dailyStats.todayIncome / targetWithDeficit) * 100 : 0;
   const isOnTrack = dailyStats.todayIncome >= targetWithDeficit;
-  const deficit = targetWithDeficit - dailyStats.todayIncome;
+  const deficit = Math.max(0, targetWithDeficit - dailyStats.todayIncome);
 
   return (
     <motion.div
@@ -71,7 +98,7 @@ export function GoalTracker() {
         </div>
         <div className="flex justify-between text-sm">
           <span className="text-muted-foreground">
-            ${dailyStats.todayIncome.toLocaleString()} de ${targetWithDeficit.toLocaleString()}
+            ${dailyStats.todayIncome.toLocaleString(undefined, { maximumFractionDigits: 0 })} de ${targetWithDeficit.toLocaleString()}
           </span>
           <span className={cn(
             'font-medium',
@@ -82,7 +109,7 @@ export function GoalTracker() {
         </div>
       </div>
 
-      {/* Deficit Alert */}
+      {/* Deficit Alert - Solo si no vamos bien */}
       {!isOnTrack && deficit > 0 && (
         <motion.div
           initial={{ opacity: 0 }}
@@ -93,19 +120,20 @@ export function GoalTracker() {
             <TrendingUp className="h-4 w-4 text-warning mt-0.5" />
             <div className="text-sm">
               <p className="text-warning font-medium">
-                Déficit de ${deficit.toLocaleString()}
+                Faltan ${deficit.toLocaleString(undefined, { maximumFractionDigits: 0 })} para la meta
               </p>
-              <p className="text-muted-foreground">
-                Meta mañana: ${(dailyGoal.targetAmount + deficit).toLocaleString()}
+              <p className="text-muted-foreground text-xs mt-1">
+                (Incluye parte proporcional de tus ingresos mensuales)
               </p>
             </div>
           </div>
         </motion.div>
       )}
 
-      {dailyGoal.accumulatedDeficit > 0 && (
+      {/* Muestra déficit histórico si existe */}
+      {(dailyGoal.accumulatedDeficit || 0) > 0 && (
         <div className="text-xs text-muted-foreground">
-          Déficit acumulado: ${dailyGoal.accumulatedDeficit.toLocaleString()}
+          Déficit acumulado de días previos: ${dailyGoal.accumulatedDeficit?.toLocaleString()}
         </div>
       )}
     </motion.div>

@@ -32,6 +32,8 @@ export function TransactionForm({ editTransaction, onSuccess }: TransactionFormP
     editTransaction?.deductionPercentage?.toString() || '0'
   );
   const [selectedColor, setSelectedColor] = useState(editTransaction?.color || PRESET_COLORS[0]);
+  
+  // CORRECCIÓN FECHA: Usamos la función local para evitar el día menos al iniciar
   const [date, setDate] = useState(editTransaction?.date || getLocalDateISOString());
   
   // NUEVO: Estados para Frecuencia y Recurrencia
@@ -54,7 +56,7 @@ export function TransactionForm({ editTransaction, onSuccess }: TransactionFormP
       } else {
         setColorWarning(null);
       }
-      // Pre-select historical color
+      // Pre-select historical color if not editing
       if (historicalColor && !editTransaction) {
         setSelectedColor(historicalColor);
         setColorWarning(null);
@@ -62,7 +64,7 @@ export function TransactionForm({ editTransaction, onSuccess }: TransactionFormP
     }
   }, [category, customCategory, getMostUsedColor, editTransaction, type]);
 
-  // Update color warning when color changes
+  // Update color warning when color changes manually
   useEffect(() => {
     const finalCategory = category === 'custom' ? customCategory : category;
     if (finalCategory) {
@@ -97,7 +99,7 @@ export function TransactionForm({ editTransaction, onSuccess }: TransactionFormP
       deductionPercentage: hasDeduction ? parseFloat(deductionPercentage) : 0,
       netAmount: hasDeduction ? calculatedNet : parseFloat(grossAmount),
       color: selectedColor,
-      date,
+      date, // Se envía el string directo "YYYY-MM-DD", sin conversión de zona horaria
       frequency, // Guardamos la frecuencia
     };
 
@@ -120,7 +122,7 @@ export function TransactionForm({ editTransaction, onSuccess }: TransactionFormP
         description: msg,
       });
       
-      // Reset form
+      // Reset form completo
       setCategory('');
       setCustomCategory('');
       setDescription('');
@@ -129,6 +131,9 @@ export function TransactionForm({ editTransaction, onSuccess }: TransactionFormP
       setDeductionPercentage('0');
       setFrequency('one-time'); // Reset frecuencia
       setIsRecurring(false); // Reset switch
+      
+      // Reset fecha a HOY local para seguir registrando rápido
+      setDate(getLocalDateISOString());
     }
 
     onSuccess?.();

@@ -11,7 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { motion, AnimatePresence } from 'framer-motion';
 import { Target, Plus, Trash2, TrendingUp, AlertTriangle, CheckCircle, Calendar, Eye } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { cn, getLocalDateISOString, parseLocalDate } from '@/lib/utils';
+import { cn, getLocalDateISOString, parseLocalDate, formatLocalDate } from '@/lib/utils';
 import { Goal, Transaction } from '@/types/finance';
 
 export default function Goals() {
@@ -19,7 +19,6 @@ export default function Goals() {
   const { toast } = useToast();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   
-  // Estado para el modal de detalles (ver desglose)
   const [selectedGoalDetails, setSelectedGoalDetails] = useState<{ goal: Goal, txs: Transaction[] } | null>(null);
 
   const initialGoalState = {
@@ -31,45 +30,46 @@ export default function Goals() {
   };
   const [newGoal, setNewGoal] = useState(initialGoalState);
 
-  // --- NUEVA LÓGICA DE PROMEDIOS Y ACUMULADOS ---
+  // NUEVA LÓGICA: Calcula progreso POST-GASTOS y promedia correctamente
   const getGoalData = (goal: Goal) => {
     const start = parseLocalDate(goal.startDate);
-    const end = goal.endDate ? parseLocalDate(goal.endDate) : new Date(); // Si no hay fin, hasta hoy
+    const endDateObj = goal.endDate ? parseLocalDate(goal.endDate) : new Date();
     
-    // Normalizamos 'hoy' para conteo de días
     const today = new Date();
-    today.setHours(0,0,0,0);
+    today.setHours(0, 0, 0, 0);
 
-    // 1. Filtrar transacciones RELEVANTES (Ingresos dentro de las fechas)
-    const contributingTxs = transactions.filter(t => {
-      // Solo consideramos INGRESOS para metas de ventas/ahorro
-      if (t.type !== 'income') return false;
-      
+    // 1. Filtrar transacciones en el rango de fechas
+    const relevantTxs = transactions.filter(t => {
       const tDate = parseLocalDate(t.date);
-      // Validar rango de fecha
       const isAfterStart = tDate >= start;
-      // Validar fin (si existe)
-      const isBeforeEnd = goal.endDate ? tDate <= parseLocalDate(goal.endDate) : true; 
-      
+      const isBeforeEnd = goal.endDate ? tDate <= parseLocalDate(goal.endDate) : true;
       return isAfterStart && isBeforeEnd;
     });
 
-    // 2. Sumar el total recaudado en ese periodo
-    const totalCollected = contributingTxs.reduce((sum, t) => sum + t.netAmount, 0);
+    // 2. Calcular INGRESOS y GASTOS
+    const totalIncome = relevantTxs
+      .filter(t => t.type === 'income')
+      .reduce((sum, t) => sum + t.netAmount, 0);
+    
+    const totalExpenses = relevantTxs
+      .filter(t => t.type === 'expense')
+      .reduce((sum, t) => sum + t.netAmount, 0);
 
-    // 3. Calcular la métrica de éxito según el período
+    // 3. Balance neto (POST-GASTOS)
+    const netBalance = totalIncome - totalExpenses;
+
+    // 4. Calcular métrica según el período
     let currentMetric = 0;
     let progress = 0;
     let statusText = '';
     let metricLabel = '';
 
     if (goal.period === 'daily') {
-      // Lógica de PROMEDIO: ¿Cuánto gano por día en promedio desde que empecé?
-      // Calculamos diferencia de tiempo en días. +1 para incluir el día de inicio.
+      // PROMEDIO DIARIO: Dividir entre días transcurridos
       const diffTime = Math.max(0, today.getTime() - start.getTime());
-      const daysPassed = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1; 
+      const daysPassed = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1;
       
-      const dailyAverage = daysPassed > 0 ? totalCollected / daysPassed : totalCollected;
+      const dailyAverage = daysPassed > 0 ? netBalance / daysPassed : netBalance;
       
       currentMetric = dailyAverage;
       progress = (dailyAverage / goal.targetAmount) * 100;
@@ -77,13 +77,13 @@ export default function Goals() {
       statusText = `Promedio: $${dailyAverage.toLocaleString(undefined, {maximumFractionDigits: 0})}/día`;
       metricLabel = `Promedio en ${daysPassed} día(s)`;
     
-    } else {
-      // Lógica de ACUMULADO (Semanal/Mensual): ¿Cuánto llevo juntado en total?
-      currentMetric = totalCollected;
-      progress = (totalCollected / goal.targetAmount) * 100;
+    } else if (goal.period === 'weekly' || goal.period === 'monthly') {
+      // ACUMULADO: Total hasta ahora
+      currentMetric = netBalance;
+      progress = (netBalance / goal.targetAmount) * 100;
       
-      statusText = `Acumulado: $${totalCollected.toLocaleString()}`;
-      metricLabel = 'Total acumulado en fecha';
+      statusText = `Acumulado: $${netBalance.toLocaleString(undefined, {maximumFractionDigits: 0})}`;
+      metricLabel = `Total desde ${formatLocalDate(goal.startDate)}`;
     }
 
     const isOnTrack = currentMetric >= goal.targetAmount;
@@ -94,9 +94,11 @@ export default function Goals() {
       progress, 
       deficit, 
       isOnTrack, 
-      contributingTxs,
+      contributingTxs: relevantTxs,
       statusText,
-      metricLabel
+      metricLabel,
+      totalIncome,
+      totalExpenses
     };
   };
 
@@ -116,7 +118,7 @@ export default function Goals() {
       accumulatedDeficit: 0,
     });
 
-    toast({ title: '¡Meta creada!', description: 'Comienza a registrar ingresos para ver tu avance.' });
+    toast({ title: '¡Meta creada!', description: 'Comienza a registrar transacciones para ver tu avance.' });
     setNewGoal(initialGoalState);
     setIsCreateOpen(false);
   };
@@ -129,10 +131,9 @@ export default function Goals() {
             <h1 className="font-display text-2xl md:text-3xl font-bold">
               <span className="text-gradient">Metas Financieras</span>
             </h1>
-            <p className="text-muted-foreground">Monitoreo de objetivos y promedios.</p>
+            <p className="text-muted-foreground">Monitorea tus objetivos post-gastos.</p>
           </motion.div>
 
-          {/* Modal para Crear Meta */}
           <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
             <DialogTrigger asChild>
               <Button className="bg-primary hover:bg-primary/90 btn-glow gap-2" onClick={() => setNewGoal(initialGoalState)}>
@@ -142,17 +143,20 @@ export default function Goals() {
             <DialogContent className="glass-card border-border/50">
               <DialogHeader>
                 <DialogTitle>Definir Objetivo</DialogTitle>
-                <DialogDescription>Configura tu meta de ingresos.</DialogDescription>
+                <DialogDescription>Configura tu meta de balance (ingresos - gastos).</DialogDescription>
               </DialogHeader>
               <div className="space-y-4 mt-4">
                 <div className="space-y-2">
                     <Label>Nombre</Label>
-                    <Input value={newGoal.name} onChange={e => setNewGoal({ ...newGoal, name: e.target.value })} className="input-glass" placeholder="Ej: Ventas Diarias, Ahorro Coche..." />
+                    <Input value={newGoal.name} onChange={e => setNewGoal({ ...newGoal, name: e.target.value })} 
+                      className="input-glass" placeholder="Ej: Ahorro Diario, Meta Semanal..." />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                         <Label>Monto Meta</Label>
-                        <Input type="number" value={newGoal.targetAmount} onChange={e => setNewGoal({ ...newGoal, targetAmount: e.target.value })} className="input-glass pl-4" />
+                        <Input type="number" value={newGoal.targetAmount} 
+                          onChange={e => setNewGoal({ ...newGoal, targetAmount: e.target.value })} 
+                          className="input-glass pl-4" />
                     </div>
                     <div className="space-y-2">
                         <Label>Tipo de Meta</Label>
@@ -169,14 +173,20 @@ export default function Goals() {
                 <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                         <Label>Desde (Inicio)</Label>
-                        <Input type="date" value={newGoal.startDate} onChange={e => setNewGoal({...newGoal, startDate: e.target.value})} className="input-glass" />
+                        <Input type="date" value={newGoal.startDate} 
+                          onChange={e => setNewGoal({...newGoal, startDate: e.target.value})} 
+                          className="input-glass" />
                     </div>
                     <div className="space-y-2">
                         <Label>Hasta (Opcional)</Label>
-                        <Input type="date" value={newGoal.endDate} onChange={e => setNewGoal({...newGoal, endDate: e.target.value})} className="input-glass" />
+                        <Input type="date" value={newGoal.endDate} 
+                          onChange={e => setNewGoal({...newGoal, endDate: e.target.value})} 
+                          className="input-glass" />
                     </div>
                 </div>
-                <Button onClick={handleAddGoal} className="w-full h-12 bg-primary hover:bg-primary/90 mt-2">Guardar Meta</Button>
+                <Button onClick={handleAddGoal} className="w-full h-12 bg-primary hover:bg-primary/90 mt-2">
+                  Guardar Meta
+                </Button>
               </div>
             </DialogContent>
           </Dialog>
@@ -195,10 +205,11 @@ export default function Goals() {
           ) : (
             <div className="grid gap-4 md:grid-cols-2">
               {goals.map((goal, index) => {
-                const { currentMetric, progress, deficit, isOnTrack, contributingTxs, statusText, metricLabel } = getGoalData(goal);
+                const { currentMetric, progress, deficit, isOnTrack, contributingTxs, statusText, metricLabel, totalIncome, totalExpenses } = getGoalData(goal);
                 
                 return (
-                  <motion.div key={goal.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.1 }}
+                  <motion.div key={goal.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} 
+                    transition={{ delay: index * 0.1 }}
                     className="glass-card p-5 relative overflow-hidden group"
                   >
                     <div className="flex items-start justify-between mb-4 relative z-10">
@@ -209,21 +220,23 @@ export default function Goals() {
                         <div>
                           <h3 className="font-display font-semibold">{goal.name}</h3>
                           <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                            <span className="capitalize font-medium">{goal.period === 'daily' ? 'Promedio Diario' : 'Acumulado'}</span>
+                            <span className="capitalize font-medium">
+                              {goal.period === 'daily' ? 'Promedio Diario' : 'Acumulado'}
+                            </span>
                             <span>•</span>
                             <Calendar className="h-3 w-3" />
-                            <span>Desde {parseLocalDate(goal.startDate).toLocaleDateString()}</span>
+                            <span>{formatLocalDate(goal.startDate)}</span>
                           </div>
                         </div>
                       </div>
                       <div className="flex gap-1">
-                        {/* BOTÓN VER DETALLES */}
-                        <Button variant="ghost" size="icon" onClick={() => setSelectedGoalDetails({ goal, txs: contributingTxs })} 
-                                className="h-8 w-8 text-muted-foreground hover:text-primary transition-colors">
+                        <Button variant="ghost" size="icon" 
+                          onClick={() => setSelectedGoalDetails({ goal, txs: contributingTxs })} 
+                          className="h-8 w-8 text-muted-foreground hover:text-primary transition-colors">
                            <Eye className="h-4 w-4" />
                         </Button>
                         <Button variant="ghost" size="icon" onClick={() => deleteGoal(goal.id)} 
-                                className="h-8 w-8 text-muted-foreground hover:text-expense transition-colors">
+                          className="h-8 w-8 text-muted-foreground hover:text-expense transition-colors">
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
@@ -233,7 +246,8 @@ export default function Goals() {
                     <div className="space-y-2 mb-4 relative z-10">
                       <div className="h-3 rounded-full bg-secondary overflow-hidden">
                         <motion.div initial={{ width: 0 }} animate={{ width: `${Math.min(progress, 100)}%` }}
-                          className={cn('h-full rounded-full transition-all', isOnTrack ? 'bg-income' : 'bg-warning')} />
+                          className={cn('h-full rounded-full transition-all', 
+                            isOnTrack ? 'bg-income' : 'bg-warning')} />
                       </div>
                       <div className="flex justify-between text-sm items-center">
                         <span className="text-muted-foreground font-medium text-xs">{statusText}</span>
@@ -242,8 +256,19 @@ export default function Goals() {
                         </span>
                       </div>
                       <div className="flex justify-between items-center mt-1">
-                         <span className="text-[10px] text-muted-foreground">Meta: ${goal.targetAmount.toLocaleString()}</span>
+                         <span className="text-[10px] text-muted-foreground">
+                           Meta: ${goal.targetAmount.toLocaleString()}
+                         </span>
                          <span className="text-[10px] text-muted-foreground">{metricLabel}</span>
+                      </div>
+                      
+                      {/* Desglose mini (Ingresos - Gastos) */}
+                      <div className="flex justify-between items-center text-[10px] pt-1 border-t border-border/30">
+                        <span className="text-income">+${totalIncome.toLocaleString(undefined, {maximumFractionDigits: 0})}</span>
+                        <span className="text-muted-foreground">-</span>
+                        <span className="text-expense">-${totalExpenses.toLocaleString(undefined, {maximumFractionDigits: 0})}</span>
+                        <span className="text-muted-foreground">=</span>
+                        <span className="font-semibold">${(totalIncome - totalExpenses).toLocaleString(undefined, {maximumFractionDigits: 0})}</span>
                       </div>
                     </div>
 
@@ -252,13 +277,14 @@ export default function Goals() {
                       <div className="p-2 rounded bg-warning/10 border border-warning/20 relative z-10 flex items-center gap-2">
                         <TrendingUp className="h-4 w-4 text-warning" />
                         <span className="text-xs text-warning font-medium">
-                            {goal.period === 'daily' ? 'Mejora tu promedio en:' : 'Te faltan:'} ${deficit.toLocaleString(undefined, {maximumFractionDigits: 0})}
+                            {goal.period === 'daily' ? 'Mejora tu promedio en:' : 'Te faltan:'} 
+                            ${deficit.toLocaleString(undefined, {maximumFractionDigits: 0})}
                         </span>
                       </div>
                     )}
                     
-                    {/* Fondo decorativo */}
-                    <div className={cn("absolute -right-4 -bottom-4 h-32 w-32 rounded-full opacity-5 blur-2xl z-0", isOnTrack ? "bg-income" : "bg-warning")} />
+                    <div className={cn("absolute -right-4 -bottom-4 h-32 w-32 rounded-full opacity-5 blur-2xl z-0", 
+                      isOnTrack ? "bg-income" : "bg-warning")} />
                   </motion.div>
                 );
               })}
@@ -266,13 +292,13 @@ export default function Goals() {
           )}
         </AnimatePresence>
 
-        {/* DIALOGO DE DETALLES (TABLA) */}
+        {/* DIALOGO DE DETALLES */}
         <Dialog open={!!selectedGoalDetails} onOpenChange={(open) => !open && setSelectedGoalDetails(null)}>
             <DialogContent className="glass-card max-w-2xl max-h-[80vh] overflow-y-auto border-border/50">
                 <DialogHeader>
                     <DialogTitle>{selectedGoalDetails?.goal.name}</DialogTitle>
                     <DialogDescription>
-                        Listado de ingresos considerados para esta meta. ({selectedGoalDetails?.txs.length} registros)
+                        Transacciones en este período ({selectedGoalDetails?.txs.length} registros)
                     </DialogDescription>
                 </DialogHeader>
                 <div className="rounded-md border border-border/50 mt-2">
@@ -280,21 +306,33 @@ export default function Goals() {
                       <TableHeader>
                           <TableRow className="hover:bg-transparent border-border/50">
                               <TableHead>Fecha</TableHead>
+                              <TableHead>Tipo</TableHead>
                               <TableHead>Categoría</TableHead>
-                              <TableHead>Descripción</TableHead>
                               <TableHead className="text-right">Monto</TableHead>
                           </TableRow>
                       </TableHeader>
                       <TableBody>
                           {selectedGoalDetails?.txs.length === 0 ? (
-                              <TableRow><TableCell colSpan={4} className="text-center py-6 text-muted-foreground">No hay ingresos en este rango de fechas.</TableCell></TableRow>
+                              <TableRow>
+                                <TableCell colSpan={4} className="text-center py-6 text-muted-foreground">
+                                  No hay transacciones en este rango.
+                                </TableCell>
+                              </TableRow>
                           ) : (
                               selectedGoalDetails?.txs.map(tx => (
                                   <TableRow key={tx.id} className="hover:bg-secondary/20 border-border/50">
-                                      <TableCell>{tx.date}</TableCell>
+                                      <TableCell>{formatLocalDate(tx.date)}</TableCell>
+                                      <TableCell>
+                                        <span className={cn('text-xs font-medium px-2 py-1 rounded',
+                                          tx.type === 'income' ? 'bg-income/10 text-income' : 'bg-expense/10 text-expense')}>
+                                          {tx.type === 'income' ? 'Ingreso' : 'Gasto'}
+                                        </span>
+                                      </TableCell>
                                       <TableCell>{tx.category}</TableCell>
-                                      <TableCell className="text-xs text-muted-foreground max-w-[150px] truncate">{tx.description || '-'}</TableCell>
-                                      <TableCell className="text-right font-medium text-income">+${tx.netAmount.toLocaleString()}</TableCell>
+                                      <TableCell className={cn('text-right font-medium',
+                                        tx.type === 'income' ? 'text-income' : 'text-expense')}>
+                                        {tx.type === 'income' ? '+' : '-'}${tx.netAmount.toLocaleString()}
+                                      </TableCell>
                                   </TableRow>
                               ))
                           )}

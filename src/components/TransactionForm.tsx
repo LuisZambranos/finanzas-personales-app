@@ -18,7 +18,6 @@ interface TransactionFormProps {
 }
 
 export function TransactionForm({ editTransaction, onSuccess }: TransactionFormProps) {
-  // Extraemos availableCategories para las listas dinámicas
   const { addTransaction, updateTransaction, getCategoryColor, getMostUsedColor, availableCategories } = useFinance();
   const { toast } = useToast();
 
@@ -33,10 +32,9 @@ export function TransactionForm({ editTransaction, onSuccess }: TransactionFormP
   );
   const [selectedColor, setSelectedColor] = useState(editTransaction?.color || PRESET_COLORS[0]);
   
-  // CORRECCIÓN FECHA: Usamos la función local para evitar el día menos al iniciar
+  // CORRECCIÓN: Fecha local sin conversión UTC
   const [date, setDate] = useState(editTransaction?.date || getLocalDateISOString());
   
-  // NUEVO: Estados para Frecuencia y Recurrencia
   const [frequency, setFrequency] = useState<Frequency>(editTransaction?.frequency || 'one-time');
   const [isRecurring, setIsRecurring] = useState(false);
 
@@ -56,7 +54,6 @@ export function TransactionForm({ editTransaction, onSuccess }: TransactionFormP
       } else {
         setColorWarning(null);
       }
-      // Pre-select historical color if not editing
       if (historicalColor && !editTransaction) {
         setSelectedColor(historicalColor);
         setColorWarning(null);
@@ -64,7 +61,6 @@ export function TransactionForm({ editTransaction, onSuccess }: TransactionFormP
     }
   }, [category, customCategory, getMostUsedColor, editTransaction, type]);
 
-  // Update color warning when color changes manually
   useEffect(() => {
     const finalCategory = category === 'custom' ? customCategory : category;
     if (finalCategory) {
@@ -99,8 +95,8 @@ export function TransactionForm({ editTransaction, onSuccess }: TransactionFormP
       deductionPercentage: hasDeduction ? parseFloat(deductionPercentage) : 0,
       netAmount: hasDeduction ? calculatedNet : parseFloat(grossAmount),
       color: selectedColor,
-      date, // Se envía el string directo "YYYY-MM-DD", sin conversión de zona horaria
-      frequency, // Guardamos la frecuencia
+      date, // Fecha en formato YYYY-MM-DD local
+      frequency,
     };
 
     if (editTransaction) {
@@ -110,7 +106,6 @@ export function TransactionForm({ editTransaction, onSuccess }: TransactionFormP
         description: 'La transacción ha sido actualizada correctamente',
       });
     } else {
-      // Pasamos isRecurring al contexto para crear la regla si es necesario
       addTransaction(transactionData, isRecurring);
       
       const msg = isRecurring 
@@ -122,24 +117,21 @@ export function TransactionForm({ editTransaction, onSuccess }: TransactionFormP
         description: msg,
       });
       
-      // Reset form completo
+      // Reset completo del formulario
       setCategory('');
       setCustomCategory('');
       setDescription('');
       setGrossAmount('');
       setHasDeduction(false);
       setDeductionPercentage('0');
-      setFrequency('one-time'); // Reset frecuencia
-      setIsRecurring(false); // Reset switch
-      
-      // Reset fecha a HOY local para seguir registrando rápido
-      setDate(getLocalDateISOString());
+      setFrequency('one-time');
+      setIsRecurring(false);
+      setDate(getLocalDateISOString()); // Vuelve a hoy
     }
 
     onSuccess?.();
   };
 
-  // Usamos las categorías dinámicas del contexto
   const categories = type === 'income' ? availableCategories.income : availableCategories.expense;
 
   return (
@@ -233,7 +225,7 @@ export function TransactionForm({ editTransaction, onSuccess }: TransactionFormP
         </div>
       </div>
 
-      {/* NUEVO BLOQUE: Frecuencia y Recurrencia */}
+      {/* Frecuencia y Recurrencia */}
       <div className="p-4 rounded-lg bg-secondary/30 space-y-4 border border-border/50">
         <div className="space-y-2">
           <Label className="flex items-center gap-2">
@@ -253,15 +245,13 @@ export function TransactionForm({ editTransaction, onSuccess }: TransactionFormP
             </SelectContent>
           </Select>
           
-          {/* Mensaje de ayuda contextual */}
           {frequency !== 'one-time' && (
              <p className="text-xs text-muted-foreground mt-1">
-               * Esto ayuda a calcular tus metas (Ej: Sueldo mensual cuenta proporcionalmente para metas diarias).
+               * Esto ayuda a calcular tus metas (Ej: Sueldo mensual cuenta proporcionalmente).
              </p>
           )}
         </div>
 
-        {/* Checkbox para activar recurrencia automática */}
         {frequency !== 'one-time' && !editTransaction && (
           <div className="flex items-center justify-between pt-2 border-t border-border/50">
             <div className="flex flex-col">
@@ -309,7 +299,6 @@ export function TransactionForm({ editTransaction, onSuccess }: TransactionFormP
                   </div>
                 </div>
 
-                {/* Live Calculation Display */}
                 {grossAmount && (
                   <motion.div
                     initial={{ opacity: 0 }}

@@ -10,7 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Transaction, PRESET_COLORS, Frequency } from '@/types/finance';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Calculator, Palette, AlertTriangle, Repeat } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, getLocalDateISOString } from '@/lib/utils';
 
 interface TransactionFormProps {
   editTransaction?: Transaction;
@@ -32,7 +32,7 @@ export function TransactionForm({ editTransaction, onSuccess }: TransactionFormP
     editTransaction?.deductionPercentage?.toString() || '0'
   );
   const [selectedColor, setSelectedColor] = useState(editTransaction?.color || PRESET_COLORS[0]);
-  const [date, setDate] = useState(editTransaction?.date || new Date().toISOString().split('T')[0]);
+  const [date, setDate] = useState(editTransaction?.date || getLocalDateISOString());
   
   // NUEVO: Estados para Frecuencia y Recurrencia
   const [frequency, setFrequency] = useState<Frequency>(editTransaction?.frequency || 'one-time');

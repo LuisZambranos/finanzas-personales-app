@@ -10,80 +10,116 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { motion, AnimatePresence } from 'framer-motion';
 import { Target, Plus, Trash2, TrendingUp, AlertTriangle, CheckCircle, Calendar } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { cn } from '@/lib/utils';
+import { cn, getLocalDateISOString, parseLocalDate } from '@/lib/utils'; // Usamos nuestras funciones seguras
 import { Goal } from '@/types/finance';
 
 export default function Goals() {
-  // Traemos 'calculateAmortizedAmount' del contexto
   const { goals, addGoal, deleteGoal, transactions, calculateAmortizedAmount } = useFinance();
   const { toast } = useToast();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   
-  // Estado del formulario (Ahora con fechas)
-  const [newGoal, setNewGoal] = useState({
+  // Estado inicial limpio
+  const initialGoalState = {
     name: '',
     targetAmount: '',
     period: 'daily' as Goal['period'],
-    startDate: new Date().toISOString().split('T')[0],
+    startDate: getLocalDateISOString(), // Usamos la fecha local correcta
     endDate: ''
-  });
+  };
 
-  // --- CÁLCULO INTELIGENTE DE PROGRESO POR META ---
+  const [newGoal, setNewGoal] = useState(initialGoalState);
+
+  // --- CÁLCULO CORREGIDO: PROGRESO DEL PERÍODO ACTUAL ---
   const getGoalProgressData = (goal: Goal) => {
-    // 1. Definir rango de fechas válido
-    const start = new Date(goal.startDate);
-    const end = goal.endDate ? new Date(goal.endDate) : new Date(); // Si no hay fin, hasta hoy
-    
-    // 2. Filtrar transacciones dentro del rango y que sean Ingresos (asumiendo metas de ahorro/ingreso)
-    // OJO: Si quieres metas de "No gastar más de X", habría que filtrar 'expense'. 
-    // Por defecto asumo metas de recaudación (Income).
-    const relevantTransactions = transactions.filter(t => {
-      const tDate = new Date(t.date);
-      return t.type === 'income' && tDate >= start && (goal.endDate ? tDate <= end : true);
+    const now = new Date();
+    // Usamos parseLocalDate para evitar el error del día anterior
+    const goalStartDate = parseLocalDate(goal.startDate); 
+    const goalEndDate = goal.endDate ? parseLocalDate(goal.endDate) : null;
+
+    // 1. Filtrar transacciones válidas (Ingresos dentro de la vigencia global de la meta)
+    const activeTransactions = transactions.filter(t => {
+      if (t.type !== 'income') return false;
+      const tDate = parseLocalDate(t.date);
+      // Validar si la transacción está dentro de las fechas de inicio/fin de la meta
+      const isAfterStart = tDate >= goalStartDate;
+      const isBeforeEnd = goalEndDate ? tDate <= goalEndDate : true;
+      return isAfterStart && isBeforeEnd;
     });
 
-    // 3. Sumar usando la amortización (La magia matemática)
-    const currentAmount = relevantTransactions.reduce((sum, t) => {
+    // 2. Filtrar SOLO las transacciones del PERÍODO ACTUAL (Para que no sume todo el historial)
+    const currentPeriodTransactions = activeTransactions.filter(t => {
+      const tDate = parseLocalDate(t.date);
+      
+      if (goal.period === 'daily') {
+        // Coincidir exactamente con HOY
+        return tDate.toDateString() === now.toDateString();
+      }
+      if (goal.period === 'monthly') {
+        // Coincidir con MES y AÑO actuales
+        return tDate.getMonth() === now.getMonth() && tDate.getFullYear() === now.getFullYear();
+      }
+      if (goal.period === 'weekly') {
+        // Lógica simplificada: Misma semana (puedes ajustar si usas ISO weeks)
+        const oneDay = 24 * 60 * 60 * 1000;
+        const diffDays = Math.round(Math.abs((now.getTime() - tDate.getTime()) / oneDay));
+        return diffDays <= 7 && tDate <= now; // Últimos 7 días
+      }
+      if (goal.period === 'yearly') {
+        return tDate.getFullYear() === now.getFullYear();
+      }
+      return true;
+    });
+
+    // 3. Sumar usando la amortización
+    // (Ej: Si es meta diaria, y tienes sueldo mensual, divide el sueldo entre 30 y lo suma a hoy)
+    const currentAmount = currentPeriodTransactions.reduce((sum, t) => {
+      // Si la transacción es ÚNICA (one-time), solo cuenta si coincide con el período exacto (ya filtrado arriba)
+      // Si es RECURRENTE (monthly), calculateAmortizedAmount nos da la parte proporcional
       return sum + calculateAmortizedAmount(t.netAmount, t.frequency, goal.period);
     }, 0);
 
-    const targetWithDeficit = goal.targetAmount + (goal.accumulatedDeficit || 0);
-    const progress = targetWithDeficit > 0 ? (currentAmount / targetWithDeficit) * 100 : 0;
-    const deficit = Math.max(0, targetWithDeficit - currentAmount);
+    const target = goal.targetAmount;
+    const progress = target > 0 ? (currentAmount / target) * 100 : 0;
+    const deficit = Math.max(0, target - currentAmount);
 
-    return { currentAmount, progress, deficit, isOnTrack: currentAmount >= targetWithDeficit };
+    return { currentAmount, progress, deficit, isOnTrack: currentAmount >= target };
   };
 
-  const handleAddGoal = () => {
-    if (!newGoal.name || !newGoal.targetAmount || !newGoal.startDate) {
+  const handleAddGoal = async () => {
+    // Validación más robusta
+    if (!newGoal.name.trim() || !newGoal.targetAmount || Number(newGoal.targetAmount) <= 0) {
       toast({
-        title: 'Error',
-        description: 'Completa nombre, monto y fecha de inicio',
+        title: 'Datos incompletos',
+        description: 'Por favor ingresa un nombre y un monto válido mayor a 0.',
         variant: 'destructive',
       });
       return;
     }
 
-    addGoal({
-      name: newGoal.name,
-      targetAmount: parseFloat(newGoal.targetAmount),
-      currentAmount: 0, // Se calcula dinámicamente, pero guardamos 0 inicial
-      period: newGoal.period,
-      startDate: newGoal.startDate,
-      endDate: newGoal.endDate || undefined,
-      accumulatedDeficit: 0,
-    });
+    try {
+      await addGoal({
+        name: newGoal.name,
+        targetAmount: parseFloat(newGoal.targetAmount),
+        currentAmount: 0,
+        period: newGoal.period,
+        startDate: newGoal.startDate,
+        endDate: newGoal.endDate || undefined,
+        accumulatedDeficit: 0,
+      });
 
-    toast({
-      title: '¡Meta creada!',
-      description: 'Tu nueva meta ha sido registrada',
-    });
+      toast({
+        title: '¡Meta creada!',
+        description: 'Tu objetivo ha sido registrado.',
+      });
 
-    setNewGoal({ 
-        name: '', targetAmount: '', period: 'daily', 
-        startDate: new Date().toISOString().split('T')[0], endDate: '' 
-    });
-    setIsDialogOpen(false);
+      // Reset completo del formulario y cierre
+      setNewGoal(initialGoalState);
+      setIsDialogOpen(false);
+      
+    } catch (error) {
+      console.error("Error creando meta:", error);
+      toast({ title: 'Error', description: 'No se pudo crear la meta.', variant: 'destructive' });
+    }
   };
 
   return (
@@ -98,25 +134,25 @@ export default function Goals() {
             <h1 className="font-display text-2xl md:text-3xl font-bold">
               <span className="text-gradient">Metas Financieras</span>
             </h1>
-            <p className="text-muted-foreground">Define objetivos y rastrea tu progreso automáticamente.</p>
+            <p className="text-muted-foreground">Progreso de tu período actual.</p>
           </motion.div>
 
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
-              <Button className="bg-primary hover:bg-primary/90 btn-glow gap-2">
+              <Button className="bg-primary hover:bg-primary/90 btn-glow gap-2" onClick={() => setNewGoal(initialGoalState)}>
                 <Plus className="h-4 w-4" />
                 Nueva Meta
               </Button>
             </DialogTrigger>
             <DialogContent className="glass-card border-border/50 max-h-[90vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle className="font-display">Crear Nueva Meta</DialogTitle>
+                <DialogTitle className="font-display">Definir Nuevo Objetivo</DialogTitle>
               </DialogHeader>
               <div className="space-y-4 mt-4">
                 <div className="space-y-2">
-                  <Label>Nombre</Label>
+                  <Label>Nombre de la meta</Label>
                   <Input
-                    placeholder="Ej: Ahorro para vacaciones, Meta de ventas..."
+                    placeholder="Ej: Ahorro Vacaciones, Sueldo Mensual..."
                     value={newGoal.name}
                     onChange={e => setNewGoal({ ...newGoal, name: e.target.value })}
                     className="h-12 input-glass"
@@ -125,7 +161,7 @@ export default function Goals() {
                 
                 <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label>Monto Objetivo</Label>
+                      <Label>Monto a lograr</Label>
                       <div className="relative">
                         <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
                         <Input
@@ -147,9 +183,9 @@ export default function Goals() {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="daily">Diario</SelectItem>
+                          <SelectItem value="daily">Diario (Meta del día)</SelectItem>
                           <SelectItem value="weekly">Semanal</SelectItem>
-                          <SelectItem value="monthly">Mensual</SelectItem>
+                          <SelectItem value="monthly">Mensual (Meta del mes)</SelectItem>
                           <SelectItem value="yearly">Anual</SelectItem>
                         </SelectContent>
                       </Select>
@@ -200,9 +236,13 @@ export default function Goals() {
           ) : (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
               {goals.map((goal, index) => {
-                // Calculamos datos en tiempo real
                 const { currentAmount, progress, deficit, isOnTrack } = getGoalProgressData(goal);
-                const targetWithDeficit = goal.targetAmount + (goal.accumulatedDeficit || 0);
+                
+                // Texto dinámico según el período
+                let periodText = "Progreso total";
+                if (goal.period === 'daily') periodText = "Progreso de HOY";
+                if (goal.period === 'monthly') periodText = "Progreso de ESTE MES";
+                if (goal.period === 'yearly') periodText = "Progreso de ESTE AÑO";
 
                 return (
                   <motion.div
@@ -221,10 +261,10 @@ export default function Goals() {
                         <div>
                           <h3 className="font-display font-semibold">{goal.name}</h3>
                           <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                            <span className="capitalize">{goal.period}</span>
+                            <span className="capitalize font-medium text-primary/80">{goal.period}</span>
                             <span>•</span>
                             <Calendar className="h-3 w-3" />
-                            <span>Desde {new Date(goal.startDate).toLocaleDateString()}</span>
+                            <span>{parseLocalDate(goal.startDate).toLocaleDateString()}</span>
                           </div>
                         </div>
                       </div>
@@ -258,11 +298,14 @@ export default function Goals() {
                           )}
                         />
                       </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">
-                          ${currentAmount.toLocaleString(undefined, { maximumFractionDigits: 0 })} / ${targetWithDeficit.toLocaleString()}
-                        </span>
-                        <span className={cn('font-medium', isOnTrack ? 'text-income' : 'text-warning')}>
+                      <div className="flex justify-between text-sm items-center">
+                        <div className="flex flex-col">
+                            <span className="text-muted-foreground text-xs">{periodText}</span>
+                            <span className="font-semibold">
+                              ${currentAmount.toLocaleString(undefined, { maximumFractionDigits: 0 })} / ${goal.targetAmount.toLocaleString()}
+                            </span>
+                        </div>
+                        <span className={cn('font-medium text-lg', isOnTrack ? 'text-income' : 'text-warning')}>
                           {Math.min(progress, 100).toFixed(0)}%
                         </span>
                       </div>
@@ -277,12 +320,17 @@ export default function Goals() {
                             <p className="text-warning font-medium">
                               Faltan: ${deficit.toLocaleString(undefined, { maximumFractionDigits: 0 })}
                             </p>
+                            {goal.period !== 'daily' && (
+                                <p className="text-xs text-muted-foreground mt-1">
+                                    Para cumplir la meta de este periodo.
+                                </p>
+                            )}
                           </div>
                         </div>
                       </div>
                     )}
                     
-                    {/* Fondo decorativo sutil */}
+                    {/* Fondo decorativo */}
                     <div className={cn(
                         "absolute -right-4 -bottom-4 h-32 w-32 rounded-full opacity-5 blur-2xl z-0",
                         isOnTrack ? "bg-income" : "bg-warning"

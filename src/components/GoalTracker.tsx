@@ -112,7 +112,7 @@ export function GoalTracker() {
                     </span>
                     <span>•</span>
                     <Calendar className="h-3 w-3" />
-                    <span>{formatLocalDate(goal.startDate)}</span>
+                    <span>{formatLocalDate(goal.startDate)} -  {formatLocalDate(goal.endDate) }</span>
                   </div>
                 </div>
               </div>

@@ -11,6 +11,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Search, Filter, Edit2, Trash2, TrendingUp, TrendingDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
+import { formatLocalDate } from '@/lib/utils';
 
 export function TransactionHistory() {
   const { transactions, deleteTransaction } = useFinance();
@@ -41,20 +42,6 @@ export function TransactionHistory() {
     toast({
       title: 'Eliminado',
       description: 'La transacción ha sido eliminada',
-    });
-  };
-
-  // Función auxiliar simple para corregir la fecha visualmente sin usar utils externos
-  const formatDate = (dateString: string) => {
-    // Cortamos el string "YYYY-MM-DD" para evitar conversiones de zona horaria
-    const [year, month, day] = dateString.split('-').map(Number);
-    // Creamos la fecha localmente (mes es índice 0-11)
-    const date = new Date(year, month - 1, day);
-    
-    return date.toLocaleDateString('es-MX', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
     });
   };
 
@@ -149,7 +136,7 @@ export function TransactionHistory() {
                     )}
                     <p className="text-xs text-muted-foreground">
                       {/* Aquí usamos la función corregida */}
-                      {formatDate(transaction.date)}
+                      {formatLocalDate(transaction.date)}
                     </p>
                   </div>
 

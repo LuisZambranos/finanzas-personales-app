@@ -1,3 +1,4 @@
+// src/components/Charts.tsx
 import { useMemo } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip, AreaChart, Area, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { useFinance } from '@/contexts/FinanceContext';
@@ -111,13 +112,22 @@ export function IncomeExpenseChart() {
     });
 
     return Array.from(dateMap.entries())
-      .map(([date, data]) => ({
-        date: new Date(date).toLocaleDateString('es-MX', { month: 'short', day: 'numeric' }),
-        Ingresos: data.income,
-        Gastos: data.expenses,
-      }))
-      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-      .slice(-14); // Last 14 days
+      .map(([dateString, data]) => {
+        // --- CORRECCIÓN DE FECHA AQUÍ ---
+        // Rompemos el string "YYYY-MM-DD" para crear la fecha localmente
+        // y evitar que Javascript le reste horas por zona horaria.
+        const [year, month, day] = dateString.split('-').map(Number);
+        const localDate = new Date(year, month - 1, day);
+
+        return {
+          dateObj: localDate, // Guardamos objeto fecha para ordenar
+          date: localDate.toLocaleDateString('es-MX', { month: 'short', day: 'numeric' }),
+          Ingresos: data.income,
+          Gastos: data.expenses,
+        };
+      })
+      .sort((a, b) => a.dateObj.getTime() - b.dateObj.getTime()) // Ordenamos por fecha real
+      .slice(-14); // Últimos 14 días con movimientos
   }, [transactions]);
 
   if (chartData.length === 0) {

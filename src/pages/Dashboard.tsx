@@ -8,7 +8,7 @@ import { GoalTracker } from '@/components/GoalTracker';
 import { Button } from '@/components/ui/button';
 import { motion } from 'framer-motion';
 import { PlusCircle, ArrowRight, TrendingUp, TrendingDown } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, formatLocalDate } from '@/lib/utils';
 
 export default function Dashboard() {
   const { transactions } = useFinance();
@@ -107,10 +107,7 @@ export default function Dashboard() {
                   <div className="flex-1 min-w-0">
                     <p className="font-medium truncate">{transaction.category}</p>
                     <p className="text-xs text-muted-foreground">
-                      {new Date(transaction.date).toLocaleDateString('es-MX', {
-                        month: 'short',
-                        day: 'numeric',
-                      })}
+                      {formatLocalDate(transaction.date)}
                     </p>
                   </div>
                   <p

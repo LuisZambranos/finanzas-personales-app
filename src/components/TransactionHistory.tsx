@@ -1,3 +1,4 @@
+// src/components/TransactionHistory.tsx
 import { useState, useMemo } from 'react';
 import { useFinance } from '@/contexts/FinanceContext';
 import { Transaction } from '@/types/finance';
@@ -40,6 +41,20 @@ export function TransactionHistory() {
     toast({
       title: 'Eliminado',
       description: 'La transacción ha sido eliminada',
+    });
+  };
+
+  // Función auxiliar simple para corregir la fecha visualmente sin usar utils externos
+  const formatDate = (dateString: string) => {
+    // Cortamos el string "YYYY-MM-DD" para evitar conversiones de zona horaria
+    const [year, month, day] = dateString.split('-').map(Number);
+    // Creamos la fecha localmente (mes es índice 0-11)
+    const date = new Date(year, month - 1, day);
+    
+    return date.toLocaleDateString('es-MX', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
     });
   };
 
@@ -133,11 +148,8 @@ export function TransactionHistory() {
                       <p className="text-sm text-muted-foreground truncate">{transaction.description}</p>
                     )}
                     <p className="text-xs text-muted-foreground">
-                      {new Date(transaction.date).toLocaleDateString('es-MX', {
-                        year: 'numeric',
-                        month: 'short',
-                        day: 'numeric',
-                      })}
+                      {/* Aquí usamos la función corregida */}
+                      {formatDate(transaction.date)}
                     </p>
                   </div>
 

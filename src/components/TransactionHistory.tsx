@@ -118,24 +118,30 @@ export function TransactionHistory() {
                     )}
                   </div>
 
-                  {/* Info */}
+                  {/* Info - Versión optimizada para móvil */}
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <h4 className="font-medium truncate">{transaction.category}</h4>
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
+                      {/* Título con truncado correcto */}
+                      <h4 className="font-medium truncate text-sm sm:text-base">{transaction.category}</h4>
+                      
+                      {/* Badge ajustado */}
                       <span
                         className={cn(
-                          'px-2 py-0.5 rounded-full text-xs font-medium',
+                          'px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-medium w-fit',
                           transaction.type === 'income' ? 'income-badge' : 'expense-badge'
                         )}
                       >
                         {transaction.type === 'income' ? 'Ingreso' : 'Gasto'}
                       </span>
                     </div>
+                    
                     {transaction.description && (
-                      <p className="text-sm text-muted-foreground truncate">{transaction.description}</p>
+                      <p className="text-xs sm:text-sm text-muted-foreground truncate max-w-[120px] sm:max-w-none">
+                        {transaction.description}
+                      </p>
                     )}
-                    <p className="text-xs text-muted-foreground">
-                      {/* Aquí usamos la función corregida */}
+                    
+                    <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5">
                       {formatLocalDate(transaction.date)}
                     </p>
                   </div>
@@ -185,7 +191,8 @@ export function TransactionHistory() {
 
       {/* Edit Dialog */}
       <Dialog open={!!editingTransaction} onOpenChange={() => setEditingTransaction(null)}>
-        <DialogContent className="glass-card border-border/50 max-w-md">
+        {/* AGREGADO: max-h-[85vh] overflow-y-auto para permitir scroll */}
+        <DialogContent className="glass-card border-border/50 max-w-md max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="font-display">Editar Transacción</DialogTitle>
           </DialogHeader>

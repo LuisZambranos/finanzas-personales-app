@@ -230,13 +230,20 @@ export default function Goals() {
                         </div>
                       </div>
                       <div className="flex gap-1">
-                        <Button variant="ghost" size="icon" 
-                          onClick={() => setSelectedGoalDetails({ goal, txs: contributingTxs })} 
-                          className="h-8 w-8 text-muted-foreground hover:text-primary transition-colors">
-                           <Eye className="h-4 w-4" />
+                        {/* BOTÓN VER DETALLES */}
+                        {/* CAMBIO: Quitamos opacity-0 para que se vea siempre, o usamos lg:opacity-0 si quieres el efecto solo en PC */}
+                        <Button 
+                          variant="ghost" 
+                          size="icon" onClick={() => setSelectedGoalDetails({ goal, txs: contributingTxs })} 
+                          className="h-8 w-8 text-muted-foreground hover:text-primary transition-colors"
+                        >
+                          <Eye className="h-4 w-4" />
                         </Button>
+                        
+                        {/* BOTÓN BORRAR */}
+                        {/* CAMBIO: Eliminamos 'opacity-0 group-hover:opacity-100' para que se vea siempre en el celular */}
                         <Button variant="ghost" size="icon" onClick={() => deleteGoal(goal.id)} 
-                          className="h-8 w-8 text-muted-foreground hover:text-expense transition-colors">
+                                className="h-8 w-8 text-muted-foreground hover:text-expense transition-colors">
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
@@ -277,7 +284,7 @@ export default function Goals() {
                       <div className="p-2 rounded bg-warning/10 border border-warning/20 relative z-10 flex items-center gap-2">
                         <TrendingUp className="h-4 w-4 text-warning" />
                         <span className="text-xs text-warning font-medium">
-                            {goal.period === 'daily' ? 'Mejora tu promedio en:' : 'Te faltan:'} 
+                            {goal.period === 'daily' ? 'Mejora tu promedio en: ' : 'Te faltan: '} 
                             ${deficit.toLocaleString(undefined, {maximumFractionDigits: 0})}
                         </span>
                       </div>

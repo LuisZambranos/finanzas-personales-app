@@ -1,3 +1,4 @@
+/* src/index.css */
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap');
 
 @tailwind base;
@@ -217,5 +218,21 @@
 
   .font-display {
     font-family: 'Outfit', sans-serif;
+  }
+}
+
+
+@layer utilities {
+  /* Clase para forzar tema naranja en componentes específicos */
+  .theme-orange {
+    --primary: 24.6 95% 53.1%;          /* Orange-500 */
+    --primary-foreground: 0 0% 100%;    /* Blanco */
+    
+    /* El color de fondo al pasar el mouse (hover) */
+    --accent: 33.3 100% 96.5%;          /* Orange-50 (muy suave) */
+    --accent-foreground: 24.6 95% 53.1%; /* Texto naranja oscuro */
+    
+    /* El anillo de enfoque (focus ring) */
+    --ring: 24.6 95% 53.1%;
   }
 }

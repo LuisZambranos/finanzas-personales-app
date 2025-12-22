@@ -215,7 +215,8 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
     if (!user) return;
     await addDoc(collection(db, 'goals'), { 
         ...goal, 
-        userId: user.id 
+        userId: user.id,
+        offDays: goal.offDays || [] // Aseguramos que se cree el array vacío si no existe
     });
   };
 

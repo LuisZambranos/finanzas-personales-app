@@ -12,6 +12,17 @@ import { Search, Filter, Edit2, Trash2, TrendingUp, TrendingDown } from 'lucide-
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { formatLocalDate } from '@/lib/utils';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 export function TransactionHistory() {
   const { transactions, deleteTransaction } = useFinance();
@@ -173,14 +184,35 @@ export function TransactionHistory() {
                     >
                       <Edit2 className="h-4 w-4" />
                     </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleDelete(transaction.id)}
-                      className="h-9 w-9 text-muted-foreground hover:text-expense"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    {/* Botón Borrar con Confirmación */}
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-9 w-9 text-muted-foreground hover:text-expense"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent className="glass-card border-border/50">
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>¿Eliminar transacción?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Esta acción no se puede deshacer. Se eliminará el registro permanentemente.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                          <AlertDialogAction 
+                            onClick={() => handleDelete(transaction.id)} 
+                            className="bg-expense text-white hover:bg-expense/90"
+                          >
+                            Eliminar
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                   </div>
                 </div>
               </motion.div>

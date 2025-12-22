@@ -14,11 +14,8 @@ export interface Transaction {
   netAmount: number;
   color: string;
   date: string;
-  
-  // NUEVO: Campos para manejo de tiempo y recurrencia
-  frequency: Frequency; // Vital para calcular si cumples metas diarias con sueldo mensual
-  isRecurringRule?: boolean; // Flag para saber si esta transacción generó una regla a futuro
-
+  frequency: Frequency;
+  isRecurringRule?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -30,13 +27,11 @@ export interface Goal {
   targetAmount: number;
   currentAmount: number;
   period: 'daily' | 'weekly' | 'monthly' | 'yearly';
-  
-  // NUEVO: Fechas para controlar la vigencia de la meta
   startDate: string;
-  endDate?: string;
-  
+  endDate?: string; 
   accumulatedDeficit?: number;
   icon?: string;
+  offDays?: string[]; // NUEVO: Para dias libres
 }
 
 export interface Recurrence {

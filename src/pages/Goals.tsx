@@ -229,8 +229,8 @@ export default function Goals() {
                             <span className="capitalize font-medium">{goal.period}</span>
                             <span>•</span>
                             <Calendar className="h-3 w-3" />
-                            <span>Desde {parseLocalDate(goal.startDate).toLocaleDateString()}</span>
-                          </div>
+                            <span>{parseLocalDate(goal.startDate).toLocaleDateString()} - {parseLocalDate(goal.endDate).toLocaleDateString()}</span>
+                          </div> 
                         </div>
                       </div>
                       <div className="flex gap-1">

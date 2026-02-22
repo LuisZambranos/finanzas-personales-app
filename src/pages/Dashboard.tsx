@@ -1,17 +1,24 @@
-import { useMemo } from 'react';
+// src/pages/Dashboard.tsx
+import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useFinance } from '@/contexts/FinanceContext';
 import { Layout } from '@/components/Layout';
 import { KPICards } from '@/components/KPICards';
 import { ExpenseChart, IncomeExpenseChart } from '@/components/Charts';
-import { GoalTracker } from '@/components/GoalTracker';
 import { Button } from '@/components/ui/button';
 import { motion } from 'framer-motion';
-import { PlusCircle, ArrowRight, TrendingUp, TrendingDown } from 'lucide-react';
+import { PlusCircle, ArrowRight, TrendingUp, TrendingDown, Target } from 'lucide-react';
 import { cn, formatLocalDate } from '@/lib/utils';
+import { GoalCard } from '@/components/GoalCard';
+import { ManageOffDaysDialog } from '@/components/ManageOffDaysDialog';
+import { Goal } from '@/types/finance';
 
 export default function Dashboard() {
-  const { transactions } = useFinance();
+  // 1. Extraemos transactions y goals
+  const { transactions, goals } = useFinance();
+  
+  // 2. Estado para el modal de días libres
+  const [managingOffDays, setManagingOffDays] = useState<Goal | null>(null);
 
   const stats = useMemo(() => {
     const totalIncome = transactions
@@ -58,8 +65,29 @@ export default function Dashboard() {
           <ExpenseChart />
         </div>
 
-        {/* Goal Tracker */}
-        <GoalTracker />
+        {/* Goal Tracker (Ahora dinámico con GoalCard) */}
+        <div className="space-y-4">
+          <h2 className="font-display text-lg font-semibold flex items-center gap-2">
+            <Target className="h-5 w-5 text-primary" />
+            Metas Activas
+          </h2>
+          {goals.length === 0 ? (
+            <div className="glass-card p-6 text-center text-muted-foreground">
+              No tienes metas activas.
+            </div>
+          ) : (
+            <div className="flex flex-col gap-4">
+              {goals.map((goal, index) => (
+                <GoalCard 
+                  key={goal.id} 
+                  goal={goal} 
+                  index={index}
+                  onManageOffDays={setManagingOffDays} 
+                />
+              ))}
+            </div>
+          )}
+        </div>
 
         {/* Recent Transactions */}
         <motion.div
@@ -124,6 +152,13 @@ export default function Dashboard() {
           )}
         </motion.div>
       </div>
+
+      {/* COMPONENTE DEL MODAL DE DÍAS LIBRES */}
+      <ManageOffDaysDialog 
+        goal={managingOffDays} 
+        isOpen={!!managingOffDays} 
+        onClose={() => setManagingOffDays(null)} 
+      />
     </Layout>
   );
 }

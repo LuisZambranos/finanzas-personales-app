@@ -22,16 +22,17 @@ export interface Transaction {
 
 export interface Goal {
   id: string;
-  userId: string;
   name: string;
   targetAmount: number;
   currentAmount: number;
   period: 'daily' | 'weekly' | 'monthly' | 'yearly';
   startDate: string;
-  endDate?: string; 
-  accumulatedDeficit?: number;
-  icon?: string;
-  offDays?: string[]; // NUEVO: Para dias libres
+  endDate?: string;
+  offDays?: string[];
+  accumulatedDeficit?: number; // Para compatibilidad
+  type?: 'savings' | 'debt'; // Si no tiene, asumimos 'savings'
+  linkedCategory?: string;   // La categoría de gasto que sumará a esta deuda
+  totalInstallments?: number; // Número de cuotas
 }
 
 export interface Recurrence {
@@ -78,8 +79,18 @@ export interface AuthState {
 }
 
 export const PRESET_COLORS = [
-  '#10b981', '#3b82f6', '#8b5cf6', '#f59e0b', '#ef4444', 
-  '#ec4899', '#06b6d4', '#84cc16', '#f97316', '#6366f1',
+"#10B981", // 1. Verde Esmeralda (Tu original predeterminado)
+  "#3B82F6", // 2. Azul original
+  "#8B5CF6", // 3. Morado original
+  "#F59E0B", // 4. Naranja / Ámbar original
+  "#EF4444", // 5. Rojo original
+  "#EC4899", // 6. Rosa / Fucsia original
+  "#06B6D4", // 7. Cyan / Celeste original
+  "#FFD700", // 8. Amarillo Oro (Nuevo, resalta mucho)
+  "#39FF14", // 9. Verde Neón (Para que no se confunda con el esmeralda)
+  "#8A2BE2", // 10. Violeta eléctrico intenso (Contrasta con el morado)
+  "#D2691E", // 11. Tono tierra / Chocolate (Excelente para "Casa" o "Gastos fijos")
+  "#B0C4DE", // 12. Azul acero / Gris plata (Excelente para "Otros")
 ];
 
 export const DEFAULT_CATEGORIES = {

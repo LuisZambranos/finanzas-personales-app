@@ -7,42 +7,42 @@ export function useMonthlyStats() {
   const { transactions } = useFinance();
 
   return useMemo(() => {
-    // 1. Ordenamos todas las transacciones cronológicamente
     const sortedTxs = [...transactions].sort((a, b) => 
       parseLocalDate(a.date).getTime() - parseLocalDate(b.date).getTime()
     );
 
     const monthsMap = new Map();
-    let globalAccumulated = 0; // El pozo histórico
+    let globalAccumulated = 0;
 
-    // 2. Agrupamos por Año-Mes
     sortedTxs.forEach(tx => {
       const date = parseLocalDate(tx.date);
       const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
       
       if (!monthsMap.has(monthKey)) {
+        // AHORA GUARDAMOS ARREGLOS DE TRANSACCIONES AQUÍ
         monthsMap.set(monthKey, { 
           income: 0, 
           expense: 0, 
-          date: date 
+          date: date,
+          incomeTxs: [],
+          expenseTxs: []
         });
       }
       
       const monthStats = monthsMap.get(monthKey);
       
-      // AQUÍ ESTÁ LA CORRECCIÓN: Usamos netAmount
       if (tx.type === 'income') {
         monthStats.income += tx.netAmount; 
+        monthStats.incomeTxs.push(tx); // Guardamos la transacción de ingreso
       } else {
         monthStats.expense += tx.netAmount;
+        monthStats.expenseTxs.push(tx); // Guardamos la transacción de gasto
       }
     });
 
-    // 3. Fecha actual para saber qué meses ya cerraron
     const today = new Date();
     const currentMonthKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
 
-    // 4. Transformamos el mapa en el Array final
     const stats = Array.from(monthsMap.entries()).map(([key, data]) => {
       const monthlySaved = data.income - data.expense;
       globalAccumulated += monthlySaved;
@@ -54,7 +54,10 @@ export function useMonthlyStats() {
         expense: data.expense,
         monthlySaved: monthlySaved,
         accumulatedSavings: globalAccumulated,
-        isCompleted: key < currentMonthKey
+        isCompleted: key < currentMonthKey,
+        // EXPORTAMOS LAS TRANSACCIONES PARA USARLAS EN EL MODAL
+        incomeTxs: data.incomeTxs,
+        expenseTxs: data.expenseTxs
       };
     });
 

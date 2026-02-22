@@ -12,6 +12,7 @@ import { cn, formatLocalDate } from '@/lib/utils';
 import { GoalCard } from '@/components/GoalCard';
 import { ManageOffDaysDialog } from '@/components/ManageOffDaysDialog';
 import { Goal } from '@/types/finance';
+import { BreakevenWidget } from '@/components/BreakevenWidget';
 
 export default function Dashboard() {
   // 1. Extraemos transactions y goals
@@ -63,6 +64,11 @@ export default function Dashboard() {
         <div className="grid lg:grid-cols-2 gap-6">
           <IncomeExpenseChart />
           <ExpenseChart />
+        </div>
+
+        {/* NUEVO: CONTENEDOR ESPECÍFICO PARA EL WIDGET DE PUNTO DE EQUILIBRIO */}
+        <div className="w-full">
+           <BreakevenWidget />
         </div>
 
         {/* Goal Tracker (Ahora dinámico con GoalCard) */}

@@ -291,7 +291,7 @@ export function TransactionForm({ editTransaction, onSuccess }: TransactionFormP
                       value={deductionPercentage}
                       onChange={e => setDeductionPercentage(e.target.value)}
                       className="h-12 text-base pr-8 input-glass"
-                      step="0.1"
+                      step="any"
                       min="0"
                       max="100"
                     />

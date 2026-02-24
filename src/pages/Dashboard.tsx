@@ -22,18 +22,41 @@ export default function Dashboard() {
   const [managingOffDays, setManagingOffDays] = useState<Goal | null>(null);
 
   const stats = useMemo(() => {
-    const totalIncome = transactions
-      .filter(t => t.type === 'income')
-      .reduce((sum, t) => sum + t.netAmount, 0);
+    const today = new Date();
+    // Obtenemos el mes actual en formato YYYY-MM (Ej: "2026-02")
+    const currentMonthStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
 
-    const totalExpenses = transactions
-      .filter(t => t.type === 'expense')
-      .reduce((sum, t) => sum + t.netAmount, 0);
+    let allTimeIncome = 0;
+    let allTimeExpenses = 0;
+    
+    let currentMonthIncome = 0;
+    let currentMonthExpenses = 0;
 
-    const netBalance = totalIncome - totalExpenses;
-    const savingsRate = totalIncome > 0 ? ((totalIncome - totalExpenses) / totalIncome) * 100 : 0;
+    transactions.forEach(t => {
+      // Verificamos si la transacción es de este mes
+      const isCurrentMonth = t.date.startsWith(currentMonthStr);
 
-    return { totalIncome, totalExpenses, netBalance, savingsRate };
+      if (t.type === 'income') {
+        allTimeIncome += t.netAmount; // Suma histórica
+        if (isCurrentMonth) currentMonthIncome += t.netAmount; // Suma del mes
+      } else {
+        allTimeExpenses += t.netAmount; // Suma histórica
+        if (isCurrentMonth) currentMonthExpenses += t.netAmount; // Suma del mes
+      }
+    });
+
+    // El balance de las tarjetas será el del mes actual
+    const currentMonthNetBalance = currentMonthIncome - currentMonthExpenses;
+    
+    // El ahorro total será el histórico de toda tu cuenta
+    const allTimeNetBalance = allTimeIncome - allTimeExpenses;
+
+    return { 
+      totalIncome: currentMonthIncome, 
+      totalExpenses: currentMonthExpenses, 
+      netBalance: currentMonthNetBalance, 
+      totalSavings: allTimeNetBalance // <-- Cambiamos savingsRate por totalSavings
+    };
   }, [transactions]);
 
   const recentTransactions = transactions.slice(0, 5);

@@ -1,94 +1,109 @@
-import { motion } from 'framer-motion';
-import { TrendingUp, TrendingDown, Wallet, PiggyBank } from 'lucide-react';
+// src/components/KPICards.tsx
+import { useState } from 'react';
+import { TrendingUp, TrendingDown, Wallet, PiggyBank, Info } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
 interface KPICardsProps {
   totalIncome: number;
   totalExpenses: number;
   netBalance: number;
-  savingsRate: number;
+  totalSavings: number; 
 }
 
-const formatCurrency = (amount: number) => {
-  return new Intl.NumberFormat('es-MX', {
-    style: 'currency',
-    currency: 'MXN',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(amount);
-};
-
-const cardVariants = {
-  hidden: { opacity: 0, y: 20 },
-  visible: (i: number) => ({
-    opacity: 1,
-    y: 0,
-    transition: {
-      delay: i * 0.1,
-      duration: 0.4,
-      ease: [0.4, 0, 0.2, 1] as const,
-    },
-  }),
-};
-
-export function KPICards({ totalIncome, totalExpenses, netBalance, savingsRate }: KPICardsProps) {
-  const cards = [
-    {
-      label: 'Ingresos Líquidos',
-      value: formatCurrency(totalIncome),
-      icon: TrendingUp,
-      color: 'text-income',
-      bgColor: 'bg-income/10',
-      borderColor: 'border-income/20',
-    },
-    {
-      label: 'Gastos',
-      value: formatCurrency(totalExpenses),
-      icon: TrendingDown,
-      color: 'text-expense',
-      bgColor: 'bg-expense/10',
-      borderColor: 'border-expense/20',
-    },
-    {
-      label: 'Balance Neto',
-      value: formatCurrency(netBalance),
-      icon: Wallet,
-      color: netBalance >= 0 ? 'text-income' : 'text-expense',
-      bgColor: netBalance >= 0 ? 'bg-income/10' : 'bg-expense/10',
-      borderColor: netBalance >= 0 ? 'border-income/20' : 'border-expense/20',
-    },
-    {
-      label: 'Tasa de Ahorro',
-      value: `${savingsRate.toFixed(1)}%`,
-      icon: PiggyBank,
-      color: savingsRate >= 20 ? 'text-income' : savingsRate >= 10 ? 'text-warning' : 'text-expense',
-      bgColor: savingsRate >= 20 ? 'bg-income/10' : savingsRate >= 10 ? 'bg-warning/10' : 'bg-expense/10',
-      borderColor: savingsRate >= 20 ? 'border-income/20' : savingsRate >= 10 ? 'border-warning/20' : 'border-expense/20',
-    },
-  ];
+// Sub-componente para manejar el estado de "abierto/cerrado" de cada info individualmente
+function KPICardItem({ 
+  title, value, icon: Icon, colorClass, bgClass, textClass, delay, infoText 
+}: { 
+  title: string, value: number, icon: any, colorClass: string, bgClass: string, textClass: string, delay: number, infoText: string 
+}) {
+  const [showInfo, setShowInfo] = useState(false);
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-      {cards.map((card, index) => (
-        <motion.div
-          key={card.label}
-          custom={index}
-          initial="hidden"
-          animate="visible"
-          variants={cardVariants}
-          className={cn('glass-card p-4 md:p-5 border', card.borderColor)}
-        >
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-xs md:text-sm text-muted-foreground">{card.label}</span>
-            <div className={cn('h-8 w-8 rounded-lg flex items-center justify-center', card.bgColor)}>
-              <card.icon className={cn('h-4 w-4', card.color)} />
-            </div>
+    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay }} className="glass-card p-5 flex flex-col">
+      <div className="flex items-start justify-between mb-4">
+        <div className="flex flex-col gap-1.5">
+          <div className="flex items-center gap-2">
+            <p className="text-sm font-medium text-muted-foreground">{title}</p>
+            <button 
+              onClick={() => setShowInfo(!showInfo)} 
+              className={cn("p-1 -ml-1 rounded-full transition-colors", showInfo ? textClass : "text-muted-foreground/50 hover:bg-secondary")}
+            >
+              <Info className="h-3.5 w-3.5" />
+            </button>
           </div>
-          <p className={cn('text-xl md:text-2xl font-display font-bold', card.color)}>
-            {card.value}
-          </p>
-        </motion.div>
-      ))}
+          
+          {/* Aquí se despliega la info al hacer click, empujando el número hacia abajo */}
+          <AnimatePresence>
+            {showInfo && (
+              <motion.div 
+                initial={{ height: 0, opacity: 0 }} 
+                animate={{ height: 'auto', opacity: 1 }} 
+                exit={{ height: 0, opacity: 0 }}
+                className="overflow-hidden"
+              >
+                <p className="text-[10px] text-muted-foreground leading-snug max-w-[90%] pb-2">
+                  {infoText}
+                </p>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+        
+        <div className={cn("p-2 rounded-lg shrink-0", bgClass)}>
+          <Icon className={cn("h-4 w-4", colorClass)} />
+        </div>
+      </div>
+      <h3 className={cn("text-2xl font-display font-bold mt-auto", textClass)}>
+        ${value.toLocaleString('es-CL', { maximumFractionDigits: 0 })}
+      </h3>
+    </motion.div>
+  );
+}
+
+export function KPICards({ totalIncome, totalExpenses, netBalance, totalSavings }: KPICardsProps) {
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <KPICardItem 
+        title="Ingresos Líquidos"
+        value={totalIncome}
+        icon={TrendingUp}
+        colorClass="text-income"
+        bgClass="bg-income/10"
+        textClass="text-income"
+        delay={0.1}
+        infoText="Suma de los ingresos generados únicamente durante el mes en curso."
+      />
+      <KPICardItem 
+        title="Gastos"
+        value={totalExpenses}
+        icon={TrendingDown}
+        colorClass="text-expense"
+        bgClass="bg-expense/10"
+        textClass="text-expense"
+        delay={0.2}
+        infoText="Suma de los gastos registrados únicamente durante el mes en curso."
+      />
+      <KPICardItem 
+        title="Balance Neto"
+        value={netBalance}
+        icon={Wallet}
+        colorClass="text-primary"
+        bgClass="bg-primary/10"
+        textClass="text-primary"
+        delay={0.3}
+        infoText="Dinero a favor o en contra generado únicamente en el mes actual (Ingresos - Gastos del mes)."
+      />
+      <KPICardItem 
+        title="Ahorro Total"
+        value={totalSavings}
+        icon={PiggyBank}
+        colorClass="text-warning"
+        bgClass="bg-warning/10"
+        textClass="text-warning"
+        delay={0.4}
+        infoText="Dinero acumulado histórico en tu cuenta desde el primer día que empezaste a usar la aplicación."
+      />
     </div>
   );
 }

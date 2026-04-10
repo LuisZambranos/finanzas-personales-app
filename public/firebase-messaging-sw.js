@@ -4,7 +4,7 @@
 importScripts('https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/10.8.0/firebase-messaging-compat.js');
 
-// Pega aquí TU configuración exacta de Firebase
+// Tu configuración exacta de Firebase
 const firebaseConfig = {
   apiKey: "AIzaSyD4TGfj-HCeI2G5VoWys8XShCJ5Wgfug68",
   authDomain: "finax-app-1e2ee.firebaseapp.com",
@@ -18,16 +18,10 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const messaging = firebase.messaging();
 
-// Esta función es la que "escucha" cuando te mandan un mensaje y la app está cerrada
+// Esta función escucha en segundo plano
 messaging.onBackgroundMessage((payload) => {
-  console.log('[firebase-messaging-sw.js] Recibido mensaje en segundo plano: ', payload);
-  
-  const notificationTitle = payload.notification.title;
-  const notificationOptions = {
-    body: payload.notification.body,
-    icon: '/logo.jpg',
-    badge: '/logo.jpg'
-  };
-
-  self.registration.showNotification(notificationTitle, notificationOptions);
+  console.log('[firebase-messaging-sw.js] Mensaje recibido en segundo plano.', payload);
+  // Eliminamos el self.registration.showNotification porque 
+  // Firebase ya lanza la alerta visual automáticamente por nosotros
+  // al usar las Campañas desde la consola.
 });

@@ -42,11 +42,10 @@ export default function Dashboard() {
           });
 
           if (token) {
-            console.log('Tu Token secreto para notificaciones es:', token);
-            alert('¡Notificaciones vinculadas! Abre la consola (F12) para ver tu Token.');
+            alert('¡Notificaciones vinculadas!');
             // (Más adelante, guardaremos este token en la base de datos de Firebase)
           } else {
-            alert('No se pudo generar el token. Revisa la consola.');
+            alert('No se pudo generar el token.');
           }
         } else {
           alert('Permiso denegado para notificaciones.');

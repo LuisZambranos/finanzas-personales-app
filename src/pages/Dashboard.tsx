@@ -7,12 +7,14 @@ import { KPICards } from '@/components/KPICards';
 import { ExpenseChart, IncomeExpenseChart } from '@/components/Charts';
 import { Button } from '@/components/ui/button';
 import { motion } from 'framer-motion';
-import { PlusCircle, ArrowRight, TrendingUp, TrendingDown, Target } from 'lucide-react';
+import { PlusCircle, ArrowRight, TrendingUp, TrendingDown, Target, BellRing } from 'lucide-react';
 import { cn, formatLocalDate } from '@/lib/utils';
 import { GoalCard } from '@/components/GoalCard';
 import { ManageOffDaysDialog } from '@/components/ManageOffDaysDialog';
 import { Goal } from '@/types/finance';
 import { BreakevenWidget } from '@/components/BreakevenWidget';
+import { messaging } from '@/lib/firebase'; 
+import { getToken } from 'firebase/messaging';
 
 export default function Dashboard() {
   // 1. Extraemos transactions y goals
@@ -20,6 +22,39 @@ export default function Dashboard() {
   
   // 2. Estado para el modal de días libres
   const [managingOffDays, setManagingOffDays] = useState<Goal | null>(null);
+
+  // 3. Función para activar notificaciones push
+  const activarNotificaciones = async () => {
+      if (!('Notification' in window)) {
+        alert('Tu navegador no soporta notificaciones.');
+        return;
+      }
+
+      try {
+        // 1. Pedimos permiso al usuario
+        const permission = await Notification.requestPermission();
+        
+        if (permission === 'granted') {
+          // 2. Buscamos el token único de este dispositivo
+          // NOTA: Reemplaza TU_LLAVE_VAPID_AQUI por tu llave real en el siguiente paso
+          const token = await getToken(messaging, { 
+            vapidKey: 'BOZ6LAV4AqJr2e_u52Q02py77AfP6ZAZrTa3jZUPv0rrykxwP5z8zX57qmRddWbsmlKBWrM3StT5qODteGK5y4k' 
+          });
+
+          if (token) {
+            console.log('Tu Token secreto para notificaciones es:', token);
+            alert('¡Notificaciones vinculadas! Abre la consola (F12) para ver tu Token.');
+            // (Más adelante, guardaremos este token en la base de datos de Firebase)
+          } else {
+            alert('No se pudo generar el token. Revisa la consola.');
+          }
+        } else {
+          alert('Permiso denegado para notificaciones.');
+        }
+      } catch (error) {
+        console.error('Error al configurar notificaciones:', error);
+      }
+    };
 
   const stats = useMemo(() => {
     const today = new Date();
@@ -50,6 +85,8 @@ export default function Dashboard() {
     
     // El ahorro total será el histórico de toda tu cuenta
     const allTimeNetBalance = allTimeIncome - allTimeExpenses;
+    // Función para pedir permiso y lanzar la notificación
+
 
     return { 
       totalIncome: currentMonthIncome, 
@@ -78,6 +115,7 @@ export default function Dashboard() {
               Nueva Transacción
             </Button>
           </Link>
+          
         </div>
 
         {/* KPIs */}
@@ -180,7 +218,38 @@ export default function Dashboard() {
             </div>
           )}
         </motion.div>
+
+        {/* Banner de Recordatorios */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="relative overflow-hidden rounded-2xl p-6 glass-card border border-primary/20 bg-gradient-to-r from-primary/5 to-transparent flex flex-col sm:flex-row items-center justify-between gap-4 mt-8"
+        >
+          {/* Luces de fondo decorativas */}
+          <div className="absolute -left-10 -bottom-10 w-32 h-32 bg-primary/20 rounded-full blur-3xl pointer-events-none"></div>
+          
+          <div className="flex items-center gap-4 relative z-10">
+            <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center shrink-0 border border-primary/30">
+              <BellRing className="h-6 w-6 text-primary" />
+            </div>
+            <div>
+              <h3 className="font-display font-semibold text-lg text-foreground mb-1">Recordatorios Inteligentes</h3>
+              <p className="text-sm text-muted-foreground max-w-md">
+                Mantén tus finanzas bajo control. Activa las alertas para recordar registrar tus gastos e ingresos del día.
+              </p>
+            </div>
+          </div>
+
+          <Button 
+            onClick={activarNotificaciones} 
+            className="shrink-0 bg-primary hover:bg-primary/90 text-primary-foreground shadow-[0_0_15px_rgba(16,185,129,0.2)] transition-shadow hover:shadow-[0_0_25px_rgba(16,185,129,0.4)] relative z-10 w-full sm:w-auto"
+          >
+            Permitir Alertas
+          </Button>
+        </motion.div>
       </div>
+
+      
 
       {/* COMPONENTE DEL MODAL DE DÍAS LIBRES */}
       <ManageOffDaysDialog 
@@ -188,6 +257,8 @@ export default function Dashboard() {
         isOpen={!!managingOffDays} 
         onClose={() => setManagingOffDays(null)} 
       />
+
+      
     </Layout>
   );
 }

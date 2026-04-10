@@ -68,8 +68,8 @@ export default function LoginPage() {
         className="w-full max-w-md relative z-10"
       >
         {/* Logo */}
-        <div className="text-center mb-8">
-        <div className="inline-flex mb-4">
+        <div className="text-center mb-5">
+        <div className="inline-flex mb-1">
             <img 
               src={logo} 
               alt="logo" 
@@ -200,10 +200,6 @@ export default function LoginPage() {
           </p>
         </div>
 
-        {/* Demo Notice */}
-        <p className="text-center text-xs text-muted-foreground mt-4">
-          Demo: Usa cualquier email y contraseña para probar
-        </p>
       </motion.div>
     </div>
   );
